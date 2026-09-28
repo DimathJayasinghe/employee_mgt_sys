@@ -1,0 +1,474 @@
+[
+  {
+    "id": 2,
+    "user_id": 5,
+    "entry_date": "2026-09-23",
+    "work_description": "leave management bug fix",
+    "created_at": "2026-09-23T13:38:33.240933+00:00",
+    "updated_at": "2026-09-23T13:38:33.240933+00:00"
+  },
+  {
+    "id": 3,
+    "user_id": 9,
+    "entry_date": "2026-09-23",
+    "work_description": "Testing  Custom function of Ethera company\nCreate Poster to ZoHo One",
+    "created_at": "2026-09-23T15:50:00.294453+00:00",
+    "updated_at": "2026-09-23T15:50:42.767+00:00"
+  },
+  {
+    "id": 37,
+    "user_id": 17,
+    "entry_date": "2026-09-25",
+    "work_description": "Creating zoho campaign marketing automation workflow for emails.",
+    "created_at": "2026-09-25T05:03:43.991259+00:00",
+    "updated_at": "2026-09-25T05:03:43.991259+00:00"
+  },
+  {
+    "id": 4,
+    "user_id": 16,
+    "entry_date": "2026-09-24",
+    "work_description": "Check Helans Transaction issue , Template issue check , Bar code printing issue check\nDevelopment of HR Management System ",
+    "created_at": "2026-09-24T03:44:04.27597+00:00",
+    "updated_at": "2026-09-24T03:44:46.101+00:00"
+  },
+  {
+    "id": 6,
+    "user_id": 13,
+    "entry_date": "2026-09-24",
+    "work_description": "",
+    "created_at": "2026-09-24T03:58:44.177984+00:00",
+    "updated_at": "2026-09-24T03:58:44.177984+00:00"
+  },
+  {
+    "id": 7,
+    "user_id": 7,
+    "entry_date": "2026-09-24",
+    "work_description": "Oak Integrated Systems demo meeting for Campaigns and Marketing Automation. Learn about Marketing Automation (CRM Plus application).",
+    "created_at": "2026-09-24T04:06:33.149659+00:00",
+    "updated_at": "2026-09-24T04:06:33.149659+00:00"
+  },
+  {
+    "id": 8,
+    "user_id": 8,
+    "entry_date": "2026-09-24",
+    "work_description": "I've been assigned to assess the Helan POS system and identify potential security vulnerabilities",
+    "created_at": "2026-09-24T04:09:01.544803+00:00",
+    "updated_at": "2026-09-24T04:09:01.544803+00:00"
+  },
+  {
+    "id": 39,
+    "user_id": 13,
+    "entry_date": "2026-09-25",
+    "work_description": "Support",
+    "created_at": "2026-09-25T05:48:25.832474+00:00",
+    "updated_at": "2026-09-25T05:48:25.832474+00:00"
+  },
+  {
+    "id": 9,
+    "user_id": 6,
+    "entry_date": "2026-09-24",
+    "work_description": "Checking pending project progress",
+    "created_at": "2026-09-24T05:30:17.429899+00:00",
+    "updated_at": "2026-09-24T05:30:17.429899+00:00"
+  },
+  {
+    "id": 10,
+    "user_id": 17,
+    "entry_date": "2026-09-24",
+    "work_description": "Getting ready for the demonstration presentation at 2.30p.m. about marketing automation and Zoho people.\nClient-Oakis",
+    "created_at": "2026-09-24T05:37:13.303762+00:00",
+    "updated_at": "2026-09-24T05:37:13.303762+00:00"
+  },
+  {
+    "id": 11,
+    "user_id": 21,
+    "entry_date": "2026-09-24",
+    "work_description": "create bill file in bio grow",
+    "created_at": "2026-09-24T06:24:26.991925+00:00",
+    "updated_at": "2026-09-24T06:24:26.991925+00:00"
+  },
+  {
+    "id": 12,
+    "user_id": 23,
+    "entry_date": "2026-09-24",
+    "work_description": "Design a flyer promotion Base & collect company emails for campaign",
+    "created_at": "2026-09-24T07:34:15.387123+00:00",
+    "updated_at": "2026-09-24T07:34:15.387123+00:00"
+  },
+  {
+    "id": 13,
+    "user_id": 5,
+    "entry_date": "2026-09-24",
+    "work_description": "Fixed bugs in leave management system and design new features of the system ",
+    "created_at": "2026-09-24T08:08:45.42809+00:00",
+    "updated_at": "2026-09-24T08:08:45.42809+00:00"
+  },
+  {
+    "id": 14,
+    "user_id": 24,
+    "entry_date": "2026-09-24",
+    "work_description": "created new article for pwholdings \nupdated our website \nchecked and creating the wichaly students next grade to update function \nchecking the pos system bugs",
+    "created_at": "2026-09-24T08:59:47.192565+00:00",
+    "updated_at": "2026-09-24T08:59:47.192565+00:00"
+  },
+  {
+    "id": 15,
+    "user_id": 26,
+    "entry_date": "2026-09-24",
+    "work_description": "Create Whychaly company student grade increase function",
+    "created_at": "2026-09-24T09:11:55.984175+00:00",
+    "updated_at": "2026-09-24T09:11:55.984175+00:00"
+  },
+  {
+    "id": 16,
+    "user_id": 19,
+    "entry_date": "2026-09-24",
+    "work_description": "Discussing the Bio Grow project in detail with a contact person from the Bio Grow company to continue the project & updating the bank transactions for the Italy Lanka Express project.",
+    "created_at": "2026-09-24T10:20:27.126351+00:00",
+    "updated_at": "2026-09-24T10:20:27.126351+00:00"
+  },
+  {
+    "id": 17,
+    "user_id": 10,
+    "entry_date": "2026-09-24",
+    "work_description": "Working on developing the Wycherley GRN (Goods Received Note) in Zoho Creator. The development is currently ongoing.\n",
+    "created_at": "2026-09-24T10:28:13.557244+00:00",
+    "updated_at": "2026-09-24T10:28:13.557244+00:00"
+  },
+  {
+    "id": 18,
+    "user_id": 20,
+    "entry_date": "2026-09-24",
+    "work_description": "Collect company email",
+    "created_at": "2026-09-24T11:12:17.493663+00:00",
+    "updated_at": "2026-09-24T11:12:17.493663+00:00"
+  },
+  {
+    "id": 19,
+    "user_id": 14,
+    "entry_date": "2026-09-24",
+    "work_description": "Error handling in the Mihraj (PVT) Ltd and Macksons Properties (Pvt) Ltd.\nSystem development of WIS according to client request.\nSystem Error Handling in the WIS.\nEmail template and Alert setup in the Inivos Technology.",
+    "created_at": "2026-09-24T11:37:32.81813+00:00",
+    "updated_at": "2026-09-24T11:37:32.81813+00:00"
+  },
+  {
+    "id": 5,
+    "user_id": 9,
+    "entry_date": "2026-09-24",
+    "work_description": "Xten Custom function Developing ongoing \nworking on gt auto booking system\nCreate Poster for ZoHo Campaign\n",
+    "created_at": "2026-09-24T03:47:11.005316+00:00",
+    "updated_at": "2026-09-24T12:01:16.12+00:00"
+  },
+  {
+    "id": 20,
+    "user_id": 12,
+    "entry_date": "2026-09-24",
+    "work_description": "• MEP Group - Data migration ( master files and transactionas)\n• Recorrected prepaid expenses of Agoal International pvt Ltd ",
+    "created_at": "2026-09-24T12:02:01.111446+00:00",
+    "updated_at": "2026-09-24T12:02:01.111446+00:00"
+  },
+  {
+    "id": 21,
+    "user_id": 11,
+    "entry_date": "2026-09-24",
+    "work_description": "•  MEP Group data migration.(masterfiles and transactions)\n• Recorrected prepaid expenses in agoal international (pvt) ltd. ",
+    "created_at": "2026-09-24T12:02:28.649324+00:00",
+    "updated_at": "2026-09-24T12:02:35.216+00:00"
+  },
+  {
+    "id": 22,
+    "user_id": 18,
+    "entry_date": "2026-09-24",
+    "work_description": "- Extracted and reviewed the transcript from the provided promotional video.\n- Identified the important company and promotional details from the transcript.\n- Organized and entered the relevant company details into an Excel sheet for promotional purposes.\n- Worked on the initial design concept and layout for a promotional flyer.\n- Used reference designs to develop a suitable flyer promotion base.\n- Reviewed the content and design for clarity.",
+    "created_at": "2026-09-24T13:03:20.32849+00:00",
+    "updated_at": "2026-09-24T13:03:20.32849+00:00"
+  },
+  {
+    "id": 23,
+    "user_id": 25,
+    "entry_date": "2026-09-24",
+    "work_description": "whycherly/cleanamatic/Bio grow/Expo/MPV",
+    "created_at": "2026-09-24T13:29:38.439648+00:00",
+    "updated_at": "2026-09-24T13:29:38.439648+00:00"
+  },
+  {
+    "id": 24,
+    "user_id": 22,
+    "entry_date": "2026-09-25",
+    "work_description": "Fix the report issue of Dilshee Enterprises. ",
+    "created_at": "2026-09-25T03:13:55.227273+00:00",
+    "updated_at": "2026-09-25T03:13:55.227273+00:00"
+  },
+  {
+    "id": 26,
+    "user_id": 24,
+    "entry_date": "2026-09-25",
+    "work_description": "Today, I worked on company website promotion and collaborated with Dimantha on POS system bug checking.",
+    "created_at": "2026-09-25T03:25:38.652013+00:00",
+    "updated_at": "2026-09-25T03:25:38.652013+00:00"
+  },
+  {
+    "id": 27,
+    "user_id": 21,
+    "entry_date": "2026-09-25",
+    "work_description": "create bill file in bio grow ",
+    "created_at": "2026-09-25T03:37:56.972167+00:00",
+    "updated_at": "2026-09-25T03:37:56.972167+00:00"
+  },
+  {
+    "id": 28,
+    "user_id": 7,
+    "entry_date": "2026-09-25",
+    "work_description": "send campaigns and create user manual for pos system",
+    "created_at": "2026-09-25T04:03:44.63914+00:00",
+    "updated_at": "2026-09-25T04:03:44.63914+00:00"
+  },
+  {
+    "id": 29,
+    "user_id": 8,
+    "entry_date": "2026-09-25",
+    "work_description": "I'm checking and analyzing the pos code base tdy",
+    "created_at": "2026-09-25T04:04:28.386483+00:00",
+    "updated_at": "2026-09-25T04:04:28.386483+00:00"
+  },
+  {
+    "id": 30,
+    "user_id": 20,
+    "entry_date": "2026-09-25",
+    "work_description": "collect company emails",
+    "created_at": "2026-09-25T04:08:52.470272+00:00",
+    "updated_at": "2026-09-25T04:08:52.470272+00:00"
+  },
+  {
+    "id": 31,
+    "user_id": 25,
+    "entry_date": "2026-09-25",
+    "work_description": "Pending Projects",
+    "created_at": "2026-09-25T04:15:18.725645+00:00",
+    "updated_at": "2026-09-25T04:15:25.187+00:00"
+  },
+  {
+    "id": 32,
+    "user_id": 11,
+    "entry_date": "2026-09-25",
+    "work_description": "Enter the bills, bill payments, invoices, invoice   payments of MEP Group.",
+    "created_at": "2026-09-25T04:19:38.915585+00:00",
+    "updated_at": "2026-09-25T04:19:38.915585+00:00"
+  },
+  {
+    "id": 33,
+    "user_id": 12,
+    "entry_date": "2026-09-25",
+    "work_description": "Entered bill payments, invoices and invoice payments of MEP Group",
+    "created_at": "2026-09-25T04:19:41.286783+00:00",
+    "updated_at": "2026-09-25T04:19:41.286783+00:00"
+  },
+  {
+    "id": 34,
+    "user_id": 26,
+    "entry_date": "2026-09-25",
+    "work_description": "Working on Whychaly company student grade increase function",
+    "created_at": "2026-09-25T04:30:21.669664+00:00",
+    "updated_at": "2026-09-25T04:30:29.634+00:00"
+  },
+  {
+    "id": 35,
+    "user_id": 14,
+    "entry_date": "2026-09-25",
+    "work_description": "Development in the daily collection report of WIS (Error handling)\nSearch enhance extension development",
+    "created_at": "2026-09-25T04:51:57.268275+00:00",
+    "updated_at": "2026-09-25T04:51:57.268275+00:00"
+  },
+  {
+    "id": 36,
+    "user_id": 16,
+    "entry_date": "2026-09-25",
+    "work_description": "Helans Bar code printing issue fix\nHR Management System Development",
+    "created_at": "2026-09-25T04:52:54.141577+00:00",
+    "updated_at": "2026-09-25T04:52:54.141577+00:00"
+  },
+  {
+    "id": 41,
+    "user_id": 6,
+    "entry_date": "2026-09-25",
+    "work_description": "pending support ,international school grade progress check, techzol user permission check ",
+    "created_at": "2026-09-25T06:09:47.874838+00:00",
+    "updated_at": "2026-09-25T06:09:47.874838+00:00"
+  },
+  {
+    "id": 42,
+    "user_id": 27,
+    "entry_date": "2026-09-25",
+    "work_description": "create  bill file bio grow",
+    "created_at": "2026-09-25T06:21:48.304794+00:00",
+    "updated_at": "2026-09-25T06:21:48.304794+00:00"
+  },
+  {
+    "id": 43,
+    "user_id": 15,
+    "entry_date": "2026-09-25",
+    "work_description": "Verify the Helans POS requirements against the current system and prepare documents on the findings. Update the bill and invoice layout settings to match the required Zoho parameters.",
+    "created_at": "2026-09-25T06:43:30.872363+00:00",
+    "updated_at": "2026-09-25T06:43:30.872363+00:00"
+  },
+  {
+    "id": 44,
+    "user_id": 28,
+    "entry_date": "2026-09-25",
+    "work_description": "Teleseen Marketing (Pvt) Ltd & CLEVR Automations (Pvt) Ltd",
+    "created_at": "2026-09-25T06:44:38.623621+00:00",
+    "updated_at": "2026-09-25T06:44:38.623621+00:00"
+  },
+  {
+    "id": 25,
+    "user_id": 19,
+    "entry_date": "2026-09-25",
+    "work_description": "I have to manually enter over 3000 records of the bank transactions into the system for the Italy Lanka Express project today. Some of these transfers are made in another foreign currencies, so I also need to determine the proper exchange rates before I enter each transfer.\n\nResolved the CPC system opening balance issue today via a phone call with the company's contact person.",
+    "created_at": "2026-09-25T03:24:41.778723+00:00",
+    "updated_at": "2026-09-25T09:44:36.451+00:00"
+  },
+  {
+    "id": 40,
+    "user_id": 23,
+    "entry_date": "2026-09-25",
+    "work_description": "Collect other company emails for zoho campaigns & learn how to create formulas an invoices.",
+    "created_at": "2026-09-25T05:54:01.038497+00:00",
+    "updated_at": "2026-09-25T09:45:57.973+00:00"
+  },
+  {
+    "id": 45,
+    "user_id": 10,
+    "entry_date": "2026-09-25",
+    "work_description": "Created custom fields for the Wycherley GRN (Purchase Receive) and implemented workflow rules with custom Deluge functions to automatically capture the relevant users for the Received/Prepared By, Checked By, and Authorized By signature sections, similar to the Purchase Order setup.\n",
+    "created_at": "2026-09-25T09:06:40.71591+00:00",
+    "updated_at": "2026-09-25T09:06:40.71591+00:00"
+  },
+  {
+    "id": 38,
+    "user_id": 9,
+    "entry_date": "2026-09-25",
+    "work_description": "Flyer design\nXten custom function\nPoya day flyer design\n",
+    "created_at": "2026-09-25T05:04:12.300008+00:00",
+    "updated_at": "2026-09-25T17:02:05.398+00:00"
+  },
+  {
+    "id": 47,
+    "user_id": 19,
+    "entry_date": "2026-09-28",
+    "work_description": "I am continuing work on the Italy Lanka Express project. My main task today is entering bank transfer funds into the system manually.",
+    "created_at": "2026-09-28T04:09:04.518756+00:00",
+    "updated_at": "2026-09-28T04:09:04.518756+00:00"
+  },
+  {
+    "id": 48,
+    "user_id": 27,
+    "entry_date": "2026-09-28",
+    "work_description": "create a bio grow bill file",
+    "created_at": "2026-09-28T04:17:37.377171+00:00",
+    "updated_at": "2026-09-28T04:17:37.377171+00:00"
+  },
+  {
+    "id": 49,
+    "user_id": 25,
+    "entry_date": "2026-09-28",
+    "work_description": "expo/ bio grow/ Innogen project- pending projects",
+    "created_at": "2026-09-28T04:17:43.928254+00:00",
+    "updated_at": "2026-09-28T04:17:49.437+00:00"
+  },
+  {
+    "id": 50,
+    "user_id": 21,
+    "entry_date": "2026-09-28",
+    "work_description": "create in bill file bio grow",
+    "created_at": "2026-09-28T04:27:46.742477+00:00",
+    "updated_at": "2026-09-28T04:27:46.742477+00:00"
+  },
+  {
+    "id": 51,
+    "user_id": 8,
+    "entry_date": "2026-09-28",
+    "work_description": "I've been assigned to check and report bugs and security flaws of the Employee Management system ",
+    "created_at": "2026-09-28T04:27:58.210933+00:00",
+    "updated_at": "2026-09-28T04:27:58.210933+00:00"
+  },
+  {
+    "id": 46,
+    "user_id": 9,
+    "entry_date": "2026-09-28",
+    "work_description": "Ethera custom function development\nZoHo Analytics Poster design\n",
+    "created_at": "2026-09-28T03:39:25.259339+00:00",
+    "updated_at": "2026-09-28T04:37:45.797+00:00"
+  },
+  {
+    "id": 52,
+    "user_id": 5,
+    "entry_date": "2026-09-28",
+    "work_description": "8:30 - 12:30 --- Implement new features in leave management system",
+    "created_at": "2026-09-28T05:51:15.907747+00:00",
+    "updated_at": "2026-09-28T05:51:15.907747+00:00"
+  },
+  {
+    "id": 53,
+    "user_id": 6,
+    "entry_date": "2026-09-28",
+    "work_description": "EMS Development, check pending project",
+    "created_at": "2026-09-28T07:27:28.533954+00:00",
+    "updated_at": "2026-09-28T07:27:28.533954+00:00"
+  },
+  {
+    "id": 54,
+    "user_id": 24,
+    "entry_date": "2026-09-28",
+    "work_description": "checking the pos system bugs",
+    "created_at": "2026-09-28T07:28:58.322562+00:00",
+    "updated_at": "2026-09-28T07:28:58.322562+00:00"
+  },
+  {
+    "id": 55,
+    "user_id": 14,
+    "entry_date": "2026-09-28",
+    "work_description": "WIS accounts settings and approval setup\nSearch enhance extension",
+    "created_at": "2026-09-28T07:30:22.768035+00:00",
+    "updated_at": "2026-09-28T07:30:22.768035+00:00"
+  },
+  {
+    "id": 56,
+    "user_id": 13,
+    "entry_date": "2026-09-28",
+    "work_description": "Support",
+    "created_at": "2026-09-28T07:33:43.118476+00:00",
+    "updated_at": "2026-09-28T07:33:43.118476+00:00"
+  },
+  {
+    "id": 57,
+    "user_id": 26,
+    "entry_date": "2026-09-28",
+    "work_description": "Assigned to create report feature in Leave management system",
+    "created_at": "2026-09-28T08:15:01.487877+00:00",
+    "updated_at": "2026-09-28T08:15:01.487877+00:00"
+  },
+  {
+    "id": 58,
+    "user_id": 11,
+    "entry_date": "2026-09-28",
+    "work_description": "Client visit MGM Holdings (Pvt) Ltd",
+    "created_at": "2026-09-28T08:22:47.072057+00:00",
+    "updated_at": "2026-09-28T08:22:47.072057+00:00"
+  },
+  {
+    "id": 59,
+    "user_id": 12,
+    "entry_date": "2026-09-28",
+    "work_description": "Client visit ( MGM Holdings pvt ltd ) ",
+    "created_at": "2026-09-28T08:23:58.471808+00:00",
+    "updated_at": "2026-09-28T08:23:58.471808+00:00"
+  },
+  {
+    "id": 60,
+    "user_id": 16,
+    "entry_date": "2026-09-28",
+    "work_description": "Helans template issue fixes\nHR Management System Development",
+    "created_at": "2026-09-28T08:54:06.100166+00:00",
+    "updated_at": "2026-09-28T08:54:06.100166+00:00"
+  }
+]

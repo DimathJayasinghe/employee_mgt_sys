@@ -1,0 +1,22 @@
+{
+  "backup_date": "2026-09-28T09:03:14.140Z",
+  "supabase_url": "https://mbblahvstusfzlbzztrp.supabase.co",
+  "tables": {
+    "users": {
+      "status": "success",
+      "count": 24
+    },
+    "leave_requests": {
+      "status": "success",
+      "count": 18
+    },
+    "daily_work_entries": {
+      "status": "success",
+      "count": 59
+    },
+    "leave_balances": {
+      "status": "success",
+      "count": 24
+    }
+  }
+}
