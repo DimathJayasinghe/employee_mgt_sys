@@ -26,9 +26,41 @@ function formatSpecialDays(dayOfWeekStr) {
   return formatted.join(', ');
 }
 
+// Helper to determine active half-day session (Morning 8:30 AM - 12:30 PM, Evening 12:30 PM - 5:30 PM)
+function getHalfDayDetails(emp) {
+  if (!emp || (emp.leave_type !== 'Half Day' && !emp.is_half_day)) {
+    return null;
+  }
+
+  let session = 'Morning';
+  const text = `${emp.special_session || ''} ${emp.reason || ''} ${emp.start_time || ''}`.toLowerCase();
+  if (text.includes('evening') || text.includes('pm') || text.includes('12:30') || text.includes('afternoon')) {
+    session = 'Evening';
+  } else if (text.includes('morning') || text.includes('am') || text.includes('8:30')) {
+    session = 'Morning';
+  }
+
+  const now = new Date();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const cutoffMinutes = 12 * 60 + 30; // 12:30 PM
+  const isMorningNow = currentMinutes < cutoffMinutes;
+
+  const isLeaveNow = session === 'Morning' ? isMorningNow : !isMorningNow;
+
+  return {
+    is_half_day: true,
+    half_day_session: session,
+    half_day_leave_now: isLeaveNow,
+    leave_time: session === 'Morning' ? '08:30 AM - 12:30 PM' : '12:30 PM - 05:30 PM',
+    working_time: session === 'Morning' ? '12:30 PM - 05:30 PM' : '08:30 AM - 12:30 PM'
+  };
+}
+
 // Helper: format an employee row for admin views (no position field)
 function formatEmp(emp) {
   let displayStatus = 'Working';
+  const hd = emp.leave_type === 'Half Day' ? getHalfDayDetails(emp) : null;
+
   if (emp.leave_type === 'Study Leave') {
     if (emp.today_work && emp.today_work.trim() !== '') {
       displayStatus = 'Study Leave / Work Today';
@@ -36,7 +68,7 @@ function formatEmp(emp) {
       displayStatus = 'Study Leave';
     }
   } else if (emp.leave_type === 'Half Day') {
-    displayStatus = 'Half Day';
+    displayStatus = hd && hd.half_day_leave_now ? `Half Day (${hd.half_day_session})` : 'Working';
   } else if (emp.leave_type) {
     displayStatus = 'On Leave';
   } else if (emp.status && emp.status !== 'On Leave') {
@@ -50,7 +82,12 @@ function formatEmp(emp) {
     department: emp.department || 'General',
     status: displayStatus,
     today_work: emp.today_work || '',
-    updated_ago: 'Today'
+    updated_ago: 'Today',
+    is_half_day: hd ? hd.is_half_day : false,
+    half_day_session: hd ? hd.half_day_session : null,
+    half_day_leave_now: hd ? hd.half_day_leave_now : false,
+    half_day_time: hd ? hd.leave_time : null,
+    half_day_working_time: hd ? hd.working_time : null
   };
 }
 
@@ -225,6 +262,8 @@ router.get('/employees', async (req, res) => {
 
     const formatted = rows.map(e => {
       let displayStatus = 'Working';
+      const hd = e.leave_type === 'Half Day' ? getHalfDayDetails(e) : null;
+
       if (e.leave_type === 'Study Leave') {
         if (e.today_work && e.today_work.trim() !== '') {
           displayStatus = 'Study Leave / Work Today';
@@ -232,7 +271,7 @@ router.get('/employees', async (req, res) => {
           displayStatus = 'Study Leave';
         }
       } else if (e.leave_type === 'Half Day') {
-        displayStatus = 'Half Day';
+        displayStatus = hd && hd.half_day_leave_now ? `Half Day (${hd.half_day_session})` : 'Working';
       } else if (e.leave_type) {
         displayStatus = 'On Leave';
       } else if (e.status && e.status !== 'On Leave') {
@@ -241,7 +280,12 @@ router.get('/employees', async (req, res) => {
 
       return {
         ...e,
-        status: displayStatus
+        status: displayStatus,
+        is_half_day: hd ? hd.is_half_day : false,
+        half_day_session: hd ? hd.half_day_session : null,
+        half_day_leave_now: hd ? hd.half_day_leave_now : false,
+        half_day_time: hd ? hd.leave_time : null,
+        half_day_working_time: hd ? hd.working_time : null
       };
     });
 

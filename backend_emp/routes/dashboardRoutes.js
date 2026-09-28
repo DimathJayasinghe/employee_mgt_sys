@@ -12,6 +12,36 @@ function getTodayStr() {
   return `${year}-${month}-${day}`;
 }
 
+// Helper to determine active half-day session (Morning 8:30 AM - 12:30 PM, Evening 12:30 PM - 5:30 PM)
+function getHalfDayDetails(activeLeave) {
+  if (!activeLeave || activeLeave.leave_type !== 'Half Day') {
+    return null;
+  }
+
+  let session = 'Morning';
+  const text = `${activeLeave.special_session || ''} ${activeLeave.reason || ''} ${activeLeave.start_time || ''}`.toLowerCase();
+  if (text.includes('evening') || text.includes('pm') || text.includes('12:30') || text.includes('afternoon')) {
+    session = 'Evening';
+  } else if (text.includes('morning') || text.includes('am') || text.includes('8:30')) {
+    session = 'Morning';
+  }
+
+  const now = new Date();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const cutoffMinutes = 12 * 60 + 30; // 12:30 PM
+  const isMorningNow = currentMinutes < cutoffMinutes;
+
+  const isLeaveNow = session === 'Morning' ? isMorningNow : !isMorningNow;
+
+  return {
+    is_half_day: true,
+    half_day_session: session,
+    half_day_leave_now: isLeaveNow,
+    leave_time: session === 'Morning' ? '08:30 AM - 12:30 PM' : '12:30 PM - 05:30 PM',
+    working_time: session === 'Morning' ? '12:30 PM - 05:30 PM' : '08:30 AM - 12:30 PM'
+  };
+}
+
 // GET /api/dashboard/summary?user_id=X
 router.get('/dashboard/summary', async (req, res) => {
   const userId = parseInt(req.query.user_id);
@@ -42,18 +72,20 @@ router.get('/dashboard/summary', async (req, res) => {
 
       // Fetch active approved leave for today
       const [activeLeavesToday] = await pool.query(
-        `SELECT leave_type, special_session FROM leave_requests 
+        `SELECT leave_type, special_session, start_time, end_time, reason FROM leave_requests 
          WHERE user_id = ? AND status = 'Approved' AND ? BETWEEN start_date AND end_date LIMIT 1`,
         [userId, todayStr]
       );
 
       let calculatedStatus = 'Working';
+      let hdDetails = null;
       if (activeLeavesToday && activeLeavesToday.length > 0) {
         const al = activeLeavesToday[0];
         if (al.leave_type === 'Study Leave') {
           calculatedStatus = todayEntry.trim() !== '' ? 'Study Leave / Work Today' : 'Study Leave';
         } else if (al.leave_type === 'Half Day') {
-          calculatedStatus = 'Half Day';
+          hdDetails = getHalfDayDetails(al);
+          calculatedStatus = hdDetails.half_day_leave_now ? `Half Day (${hdDetails.half_day_session})` : 'Working';
         } else {
           calculatedStatus = 'On Leave';
         }
@@ -71,7 +103,19 @@ router.get('/dashboard/summary', async (req, res) => {
       );
 
       return res.json({
-        user: { id: user.id, name: user.name, title: user.title, email: user.email, initials: user.initials, status: calculatedStatus },
+        user: { 
+          id: user.id, 
+          name: user.name, 
+          title: user.title, 
+          email: user.email, 
+          initials: user.initials, 
+          status: calculatedStatus,
+          is_half_day: hdDetails ? hdDetails.is_half_day : false,
+          half_day_session: hdDetails ? hdDetails.half_day_session : null,
+          half_day_leave_now: hdDetails ? hdDetails.half_day_leave_now : false,
+          half_day_time: hdDetails ? hdDetails.leave_time : null,
+          half_day_working_time: hdDetails ? hdDetails.working_time : null
+        },
         todayWork: todayEntry,
         leaveBalance: { total_days: balance.total_days, used_days: balance.used_days, available_days },
         recentLeaveRequests: leaves

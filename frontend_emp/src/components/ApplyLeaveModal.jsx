@@ -172,8 +172,9 @@ export default function ApplyLeaveModal({ isOpen, onClose, onSubmitLeave, user }
         end_date: finalEndDate,
         days_count: finalDaysCount,
         day_of_week: dayOfWeekStr,
-        start_time: null,
-        end_time: null,
+        start_time: isHalfDay ? (halfDaySession === 'Morning' ? '08:30:00' : '12:30:00') : null,
+        end_time: isHalfDay ? (halfDaySession === 'Morning' ? '12:30:00' : '17:30:00') : null,
+        special_session: isHalfDay ? halfDaySession : null,
         is_recurring: isSpecialLeave ? 1 : 0,
         reason: finalReason
       });

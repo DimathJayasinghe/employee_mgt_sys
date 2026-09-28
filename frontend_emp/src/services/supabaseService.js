@@ -40,6 +40,38 @@ function formatSpecialDays(dayOfWeekStr) {
   return formatted.join(', ');
 }
 
+// Helper to determine active half-day session (Morning 8:30 AM - 12:30 PM, Evening 12:30 PM - 5:30 PM)
+function getHalfDayDetails(activeLeave) {
+  if (!activeLeave || activeLeave.leave_type !== 'Half Day') {
+    return null;
+  }
+
+  let session = 'Morning';
+  const text = `${activeLeave.special_session || ''} ${activeLeave.reason || ''} ${activeLeave.start_time || ''}`.toLowerCase();
+  if (text.includes('evening') || text.includes('pm') || text.includes('12:30') || text.includes('afternoon')) {
+    session = 'Evening';
+  } else if (text.includes('morning') || text.includes('am') || text.includes('8:30')) {
+    session = 'Morning';
+  }
+
+  const now = new Date();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const cutoffMinutes = 12 * 60 + 30; // 12:30 PM
+  const isMorningNow = currentMinutes < cutoffMinutes;
+
+  // Morning session leave: 8:30 AM - 12:30 PM (leave in morning, working in evening)
+  // Evening session leave: 12:30 PM - 5:30 PM (working in morning, leave in evening)
+  const isLeaveNow = session === 'Morning' ? isMorningNow : !isMorningNow;
+
+  return {
+    is_half_day: true,
+    half_day_session: session, // 'Morning' | 'Evening'
+    half_day_leave_now: isLeaveNow,
+    leave_time: session === 'Morning' ? '08:30 AM - 12:30 PM' : '12:30 PM - 05:30 PM',
+    working_time: session === 'Morning' ? '12:30 PM - 05:30 PM' : '08:30 AM - 12:30 PM'
+  };
+}
+
 // -------------------------------------------------------------
 // AUTH SERVICES
 // -------------------------------------------------------------
@@ -293,12 +325,14 @@ export const dashboardService = {
       .gte('end_date', todayStr);
 
     let calculatedStatus = 'Working';
+    let hdDetails = null;
     if (activeLeavesToday && activeLeavesToday.length > 0) {
       const activeLeave = activeLeavesToday[0];
       if (activeLeave.leave_type === 'Study Leave') {
         calculatedStatus = todayEntry.trim() !== '' ? 'Study Leave / Work Today' : 'Study Leave';
       } else if (activeLeave.leave_type === 'Half Day') {
-        calculatedStatus = 'Half Day';
+        hdDetails = getHalfDayDetails(activeLeave);
+        calculatedStatus = hdDetails.half_day_leave_now ? `Half Day (${hdDetails.half_day_session})` : 'Working';
       } else {
         calculatedStatus = 'On Leave';
       }
@@ -327,7 +361,12 @@ export const dashboardService = {
         initials: user.initials,
         status: calculatedStatus,
         department: user.department,
-        role: user.role
+        role: user.role,
+        is_half_day: hdDetails ? hdDetails.is_half_day : false,
+        half_day_session: hdDetails ? hdDetails.half_day_session : null,
+        half_day_leave_now: hdDetails ? hdDetails.half_day_leave_now : false,
+        half_day_time: hdDetails ? hdDetails.leave_time : null,
+        half_day_working_time: hdDetails ? hdDetails.working_time : null
       },
       todayWork: todayEntry,
       leaveBalance: {
@@ -512,17 +551,23 @@ export const adminService = {
       const todayWork = workMap[u.id] || '';
 
       let displayStatus = 'Working';
+      let hd = null;
+
       if (activeLeave) {
         if (activeLeave.leave_type === 'Study Leave') {
           displayStatus = todayWork.trim() !== '' ? 'Study Leave / Work Today' : 'Study Leave';
         } else if (activeLeave.leave_type === 'Half Day') {
-          displayStatus = 'Half Day';
+          hd = getHalfDayDetails(activeLeave);
+          displayStatus = hd.half_day_leave_now ? `Half Day (${hd.half_day_session})` : 'Working';
         } else {
           displayStatus = 'On Leave';
         }
 
-        if (u.status !== 'On Leave') {
+        const isActivelyOnLeave = activeLeave.leave_type === 'Half Day' ? hd.half_day_leave_now : true;
+        if (isActivelyOnLeave && u.status !== 'On Leave') {
           userIdsToOnLeave.push(u.id);
+        } else if (!isActivelyOnLeave && u.status === 'On Leave') {
+          staleUserIdsToWorking.push(u.id);
         }
       } else {
         if (u.status && u.status !== 'On Leave') {
@@ -539,22 +584,40 @@ export const adminService = {
         department: u.department || 'IT',
         status: displayStatus,
         today_work: todayWork,
-        updated_ago: 'Today'
+        updated_ago: 'Today',
+        is_half_day: hd ? hd.is_half_day : false,
+        half_day_session: hd ? hd.half_day_session : null,
+        half_day_leave_now: hd ? hd.half_day_leave_now : false,
+        half_day_time: hd ? hd.leave_time : null,
+        half_day_working_time: hd ? hd.working_time : null
       };
 
       if (activeLeave) {
-        onLeaveCount++;
         const leaveType = activeLeave.leave_type;
 
         if (leaveType === 'Half Day') {
           halfDayCount++;
+          const hdInfo = hd || getHalfDayDetails(activeLeave);
           halfDayEmployees.push({
             ...formattedEmp,
-            session: activeLeave.special_session || (activeLeave.start_time ? `${activeLeave.start_time} - ${activeLeave.end_time}` : 'Half Day'),
-            time: activeLeave.start_time && activeLeave.end_time ? `${activeLeave.start_time} - ${activeLeave.end_time}` : ''
+            session: `${hdInfo.half_day_session} Session (${hdInfo.leave_time})`,
+            half_day_type: `${hdInfo.half_day_session} Session`,
+            time: hdInfo.leave_time,
+            is_leave_now: hdInfo.half_day_leave_now,
+            leave_time: hdInfo.leave_time,
+            working_time: hdInfo.working_time,
+            reason: activeLeave.reason || `${hdInfo.half_day_session} Half Day`
           });
+
+          if (hdInfo.half_day_leave_now) {
+            onLeaveCount++;
+          } else {
+            workingCount++;
+            workingWorkforce.push(formattedEmp);
+          }
         } else if (leaveType === 'Study Leave') {
           studyLeaveCount++;
+          onLeaveCount++;
           studyLeaveEmployees.push({
             ...formattedEmp,
             session: activeLeave.special_session || 'Full Day',
@@ -562,12 +625,14 @@ export const adminService = {
           });
         } else if (leaveType === 'Special Leave') {
           specialLeaveCount++;
+          onLeaveCount++;
           specialLeaveEmployees.push({
             ...formattedEmp,
             days: formatSpecialDays(activeLeave.day_of_week),
             reason: activeLeave.reason || 'Special Leave'
           });
         } else {
+          onLeaveCount++;
           todaysLeave.push({
             ...formattedEmp,
             leave_type: leaveType,
@@ -668,18 +733,23 @@ export const adminService = {
       const activeLeave = leaveMap[u.id];
       const todayWork = workMap[u.id] || '';
       let displayStatus = 'Working';
+      let hd = null;
 
       if (activeLeave) {
         if (activeLeave.leave_type === 'Study Leave') {
           displayStatus = todayWork.trim() !== '' ? 'Study Leave / Work Today' : 'Study Leave';
         } else if (activeLeave.leave_type === 'Half Day') {
-          displayStatus = 'Half Day';
+          hd = getHalfDayDetails(activeLeave);
+          displayStatus = hd.half_day_leave_now ? `Half Day (${hd.half_day_session})` : 'Working';
         } else {
           displayStatus = 'On Leave';
         }
 
-        if (u.status !== 'On Leave') {
+        const isActivelyOnLeave = activeLeave.leave_type === 'Half Day' ? hd.half_day_leave_now : true;
+        if (isActivelyOnLeave && u.status !== 'On Leave') {
           userIdsToOnLeave.push(u.id);
+        } else if (!isActivelyOnLeave && u.status === 'On Leave') {
+          staleUserIdsToWorking.push(u.id);
         }
       } else {
         if (u.status && u.status !== 'On Leave') {
@@ -697,7 +767,12 @@ export const adminService = {
         status: displayStatus,
         role: u.role || 'Employee',
         today_work: todayWork,
-        updated_ago: 'Today'
+        updated_ago: 'Today',
+        is_half_day: hd ? hd.is_half_day : false,
+        half_day_session: hd ? hd.half_day_session : null,
+        half_day_leave_now: hd ? hd.half_day_leave_now : false,
+        half_day_time: hd ? hd.leave_time : null,
+        half_day_working_time: hd ? hd.working_time : null
       };
     });
 

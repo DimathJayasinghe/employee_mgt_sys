@@ -85,13 +85,29 @@ export default function TodaysWorkforceTable({ workforce = [] }) {
                   </td>
                   <td className="px-6 py-4 text-slate-600 font-medium">{emp.department}</td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-block whitespace-nowrap border text-[11px] font-bold px-2.5 py-0.5 rounded-md ${
-                      emp.status && emp.status.includes('Study Leave')
-                        ? 'bg-sky-50 text-sky-700 border-sky-200'
-                        : 'bg-emerald-50 text-emerald-600 border-emerald-200/80'
-                    }`}>
-                      {emp.status}
-                    </span>
+                    {emp.is_half_day ? (
+                      <span 
+                        className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-bold border border-emerald-300 bg-emerald-50 text-emerald-800 shadow-2xs"
+                        title={`Half Day: ${emp.half_day_session === 'Morning' ? 'Morning Leave (8:30 AM - 12:30 PM) · Working (12:30 PM - 5:30 PM)' : 'Working (8:30 AM - 12:30 PM) · Evening Leave (12:30 PM - 5:30 PM)'}`}
+                      >
+                        <span className="w-2.5 h-2.5 rounded-full overflow-hidden flex border border-emerald-400 shrink-0 shadow-2xs">
+                          <span className="w-1/2 h-full bg-emerald-500"></span>
+                          <span className="w-1/2 h-full bg-amber-500"></span>
+                        </span>
+                        <span>Working</span>
+                        <span className="bg-amber-100 text-amber-800 border border-amber-300/80 text-[10px] px-1.5 py-0.2 rounded font-bold">
+                          {emp.half_day_session === 'Morning' ? 'AM Leave' : 'PM Leave'}
+                        </span>
+                      </span>
+                    ) : (
+                      <span className={`inline-block whitespace-nowrap border text-[11px] font-bold px-2.5 py-0.5 rounded-md ${
+                        emp.status && emp.status.includes('Study Leave')
+                          ? 'bg-sky-50 text-sky-700 border-sky-200'
+                          : 'bg-emerald-50 text-emerald-600 border-emerald-200/80'
+                      }`}>
+                        {emp.status}
+                      </span>
+                    )}
                   </td>
                   <td className="px-6 py-4 text-slate-400 text-[11px] font-medium whitespace-nowrap">{emp.updated_ago}</td>
                   <td className="px-6 py-4 text-slate-800 font-normal min-w-[240px] max-w-md">
