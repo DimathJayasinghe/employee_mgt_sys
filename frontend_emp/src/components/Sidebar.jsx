@@ -4,6 +4,7 @@ import {
   Briefcase, 
   CalendarPlus, 
   ClipboardList, 
+  FileText,
   LogOut,
   X
 } from 'lucide-react';
@@ -87,7 +88,7 @@ export default function Sidebar({ activeTab, setActiveTab, onOpenApplyLeave, use
           </div>
 
           {/* Navigation Section 2: LEAVE */}
-          <div>
+          <div className="mb-6">
             <p className="text-[11px] font-bold tracking-wider text-slate-400 uppercase px-3 mb-2">Leave</p>
             <nav className="space-y-1">
               <button
@@ -108,6 +109,24 @@ export default function Sidebar({ activeTab, setActiveTab, onOpenApplyLeave, use
               >
                 <ClipboardList className="w-4 h-4" />
                 <span>My Leave History</span>
+              </button>
+            </nav>
+          </div>
+
+          {/* Navigation Section 3: FORMS */}
+          <div>
+            <p className="text-[11px] font-bold tracking-wider text-slate-400 uppercase px-3 mb-2">Forms</p>
+            <nav className="space-y-1">
+              <button
+                onClick={() => handleNavClick('visit-form')}
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                  activeTab === 'visit-form'
+                    ? 'bg-[#152a4a] text-white shadow-sm border border-slate-700/60'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-[#0c1f3a]'
+                }`}
+              >
+                <FileText className="w-4 h-4" />
+                <span>Visit Form</span>
               </button>
             </nav>
           </div>

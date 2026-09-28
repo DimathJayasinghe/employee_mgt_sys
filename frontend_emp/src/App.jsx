@@ -13,6 +13,7 @@ import RecentLeaveRequestsCard from './components/RecentLeaveRequestsCard';
 import ApplyLeaveModal from './components/ApplyLeaveModal';
 import WorkHistoryView from './components/WorkHistoryView';
 import LeaveHistoryView from './components/LeaveHistoryView';
+import VisitFormView from './components/VisitFormView';
 
 // Admin Dashboard Components
 import AdminSidebar from './components/admin/AdminSidebar';
@@ -232,7 +233,8 @@ export default function App() {
   const employeeTitles = {
     'dashboard': 'Dashboard',
     'work-history': "Today's Work Log",
-    'leave-history': 'My Leave History'
+    'leave-history': 'My Leave History',
+    'visit-form': 'Visiting Form'
   };
 
   // VIEW 1: LANDING LOGIN PAGE (First Page User Sees)
@@ -363,6 +365,8 @@ export default function App() {
           {activeTab === 'leave-history' && (
             <LeaveHistoryView userId={currentUser?.id} onOpenApplyLeave={() => setIsApplyLeaveOpen(true)} />
           )}
+
+          {activeTab === 'visit-form' && <VisitFormView />}
         </main>
       </div>
 
