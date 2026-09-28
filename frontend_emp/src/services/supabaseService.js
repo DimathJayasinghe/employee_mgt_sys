@@ -283,7 +283,35 @@ export const dashboardService = {
     const usedDays = parseFloat(balance.used_days || 0);
     const available_days = Math.max(0, totalDays - usedDays);
 
-    // 4. Fetch Recent Leave Requests (5 most recent)
+    // 4. Fetch Active Approved Leave for Today
+    const { data: activeLeavesToday } = await supabase
+      .from('leave_requests')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('status', 'Approved')
+      .lte('start_date', todayStr)
+      .gte('end_date', todayStr);
+
+    let calculatedStatus = 'Working';
+    if (activeLeavesToday && activeLeavesToday.length > 0) {
+      const activeLeave = activeLeavesToday[0];
+      if (activeLeave.leave_type === 'Study Leave') {
+        calculatedStatus = todayEntry.trim() !== '' ? 'Study Leave / Work Today' : 'Study Leave';
+      } else if (activeLeave.leave_type === 'Half Day') {
+        calculatedStatus = 'Half Day';
+      } else {
+        calculatedStatus = 'On Leave';
+      }
+    } else if (user.status && user.status !== 'On Leave') {
+      calculatedStatus = user.status;
+    }
+
+    // Auto-heal status if outdated
+    if (user.status === 'On Leave' && (!activeLeavesToday || activeLeavesToday.length === 0)) {
+      supabase.from('users').update({ status: 'Working' }).eq('id', userId).then(() => {});
+    }
+
+    // 5. Fetch Recent Leave Requests (5 most recent)
     const { data: leaves } = await supabase
       .from('leave_requests')
       .select('id, leave_type, start_date, end_date, days_count, day_of_week, special_session, status, reason, created_at')
@@ -297,7 +325,7 @@ export const dashboardService = {
         name: user.name,
         email: user.email,
         initials: user.initials,
-        status: user.status,
+        status: calculatedStatus,
         department: user.department,
         role: user.role
       },
@@ -476,18 +504,32 @@ export const adminService = {
     let studyLeaveCount = 0;
     let specialLeaveCount = 0;
 
+    const staleUserIdsToWorking = [];
+    const userIdsToOnLeave = [];
+
     (allUsers || []).forEach(u => {
       const activeLeave = leaveMap[u.id];
       const todayWork = workMap[u.id] || '';
 
-      let currentStatus = u.status || 'Working';
+      let displayStatus = 'Working';
       if (activeLeave) {
-        currentStatus = 'On Leave';
-      }
+        if (activeLeave.leave_type === 'Study Leave') {
+          displayStatus = todayWork.trim() !== '' ? 'Study Leave / Work Today' : 'Study Leave';
+        } else if (activeLeave.leave_type === 'Half Day') {
+          displayStatus = 'Half Day';
+        } else {
+          displayStatus = 'On Leave';
+        }
 
-      let displayStatus = currentStatus;
-      if (activeLeave?.leave_type === 'Study Leave') {
-        displayStatus = todayWork.trim() !== '' ? 'Study Leave / Work Today' : 'Study Leave';
+        if (u.status !== 'On Leave') {
+          userIdsToOnLeave.push(u.id);
+        }
+      } else {
+        if (u.status && u.status !== 'On Leave') {
+          displayStatus = u.status;
+        } else if (u.status === 'On Leave') {
+          staleUserIdsToWorking.push(u.id);
+        }
       }
 
       const formattedEmp = {
@@ -538,6 +580,13 @@ export const adminService = {
       }
     });
 
+    if (staleUserIdsToWorking.length > 0) {
+      supabase.from('users').update({ status: 'Working' }).in('id', staleUserIdsToWorking).then(() => {});
+    }
+    if (userIdsToOnLeave.length > 0) {
+      supabase.from('users').update({ status: 'On Leave' }).in('id', userIdsToOnLeave).then(() => {});
+    }
+
     const pendingFormatted = (pendingRequests || []).map(r => ({
       id: r.id,
       employee_name: r.users?.name || 'Employee',
@@ -582,11 +631,13 @@ export const adminService = {
   async getAdminEmployees() {
     const todayStr = getTodayStr();
 
+    // 1. Fetch all users
     const { data: allUsers } = await supabase
       .from('users')
       .select('id, name, initials, department, status, role')
       .order('name', { ascending: true });
 
+    // 2. Fetch today's work entries
     const { data: todayWorks } = await supabase
       .from('daily_work_entries')
       .select('user_id, work_description')
@@ -597,16 +648,66 @@ export const adminService = {
       workMap[w.user_id] = w.work_description;
     });
 
-    const employees = (allUsers || []).map(u => ({
-      id: u.id,
-      name: u.name,
-      initials: u.initials || getInitials(u.name),
-      department: u.department || 'IT',
-      status: u.status || 'Working',
-      role: u.role || 'Employee',
-      today_work: workMap[u.id] || '',
-      updated_ago: 'Today'
-    }));
+    // 3. Fetch active approved leaves for today
+    const { data: activeLeaves } = await supabase
+      .from('leave_requests')
+      .select('*')
+      .eq('status', 'Approved')
+      .lte('start_date', todayStr)
+      .gte('end_date', todayStr);
+
+    const leaveMap = {};
+    (activeLeaves || []).forEach(l => {
+      leaveMap[l.user_id] = l;
+    });
+
+    const staleUserIdsToWorking = [];
+    const userIdsToOnLeave = [];
+
+    const employees = (allUsers || []).map(u => {
+      const activeLeave = leaveMap[u.id];
+      const todayWork = workMap[u.id] || '';
+      let displayStatus = 'Working';
+
+      if (activeLeave) {
+        if (activeLeave.leave_type === 'Study Leave') {
+          displayStatus = todayWork.trim() !== '' ? 'Study Leave / Work Today' : 'Study Leave';
+        } else if (activeLeave.leave_type === 'Half Day') {
+          displayStatus = 'Half Day';
+        } else {
+          displayStatus = 'On Leave';
+        }
+
+        if (u.status !== 'On Leave') {
+          userIdsToOnLeave.push(u.id);
+        }
+      } else {
+        if (u.status && u.status !== 'On Leave') {
+          displayStatus = u.status;
+        } else if (u.status === 'On Leave') {
+          staleUserIdsToWorking.push(u.id);
+        }
+      }
+
+      return {
+        id: u.id,
+        name: u.name,
+        initials: u.initials || getInitials(u.name),
+        department: u.department || 'IT',
+        status: displayStatus,
+        role: u.role || 'Employee',
+        today_work: todayWork,
+        updated_ago: 'Today'
+      };
+    });
+
+    // Self-healing: asynchronously sync stale statuses in the users table
+    if (staleUserIdsToWorking.length > 0) {
+      supabase.from('users').update({ status: 'Working' }).in('id', staleUserIdsToWorking).then(() => {});
+    }
+    if (userIdsToOnLeave.length > 0) {
+      supabase.from('users').update({ status: 'On Leave' }).in('id', userIdsToOnLeave).then(() => {});
+    }
 
     return { employees };
   },

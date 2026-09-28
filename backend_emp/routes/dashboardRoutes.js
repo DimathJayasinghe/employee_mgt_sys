@@ -5,7 +5,11 @@ const { initDatabase, getIsDbConnected, memoryStore } = require('../initDb');
 
 // Helper to format date strings YYYY-MM-DD
 function getTodayStr() {
-  return new Date().toISOString().split('T')[0];
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 // GET /api/dashboard/summary?user_id=X
@@ -36,6 +40,27 @@ router.get('/dashboard/summary', async (req, res) => {
       const balance = balances[0] || { total_days: 24, used_days: 0 };
       const available_days = Math.max(0, parseFloat(balance.total_days || 24) - parseFloat(balance.used_days || 0));
 
+      // Fetch active approved leave for today
+      const [activeLeavesToday] = await pool.query(
+        `SELECT leave_type, special_session FROM leave_requests 
+         WHERE user_id = ? AND status = 'Approved' AND ? BETWEEN start_date AND end_date LIMIT 1`,
+        [userId, todayStr]
+      );
+
+      let calculatedStatus = 'Working';
+      if (activeLeavesToday && activeLeavesToday.length > 0) {
+        const al = activeLeavesToday[0];
+        if (al.leave_type === 'Study Leave') {
+          calculatedStatus = todayEntry.trim() !== '' ? 'Study Leave / Work Today' : 'Study Leave';
+        } else if (al.leave_type === 'Half Day') {
+          calculatedStatus = 'Half Day';
+        } else {
+          calculatedStatus = 'On Leave';
+        }
+      } else if (user.status && user.status !== 'On Leave') {
+        calculatedStatus = user.status;
+      }
+
       const [leaves] = await pool.query(
         `SELECT id, leave_type, 
                 DATE_FORMAT(start_date, '%Y-%m-%d') AS start_date, 
@@ -46,7 +71,7 @@ router.get('/dashboard/summary', async (req, res) => {
       );
 
       return res.json({
-        user: { id: user.id, name: user.name, title: user.title, email: user.email, initials: user.initials, status: user.status },
+        user: { id: user.id, name: user.name, title: user.title, email: user.email, initials: user.initials, status: calculatedStatus },
         todayWork: todayEntry,
         leaveBalance: { total_days: balance.total_days, used_days: balance.used_days, available_days },
         recentLeaveRequests: leaves

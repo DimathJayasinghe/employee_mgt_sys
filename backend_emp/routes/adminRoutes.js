@@ -5,7 +5,11 @@ const { initDatabase, getIsDbConnected, memoryStore } = require('../initDb');
 
 // Helper to format date strings YYYY-MM-DD
 function getTodayStr() {
-  return new Date().toISOString().split('T')[0];
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 // Parse "Monday:Morning,Wednesday:Evening" → "Mon (Morning), Wed (Evening)"
@@ -24,13 +28,19 @@ function formatSpecialDays(dayOfWeekStr) {
 
 // Helper: format an employee row for admin views (no position field)
 function formatEmp(emp) {
-  let displayStatus = emp.status || 'Working';
+  let displayStatus = 'Working';
   if (emp.leave_type === 'Study Leave') {
     if (emp.today_work && emp.today_work.trim() !== '') {
       displayStatus = 'Study Leave / Work Today';
     } else {
       displayStatus = 'Study Leave';
     }
+  } else if (emp.leave_type === 'Half Day') {
+    displayStatus = 'Half Day';
+  } else if (emp.leave_type) {
+    displayStatus = 'On Leave';
+  } else if (emp.status && emp.status !== 'On Leave') {
+    displayStatus = emp.status;
   }
 
   return {
@@ -82,7 +92,7 @@ router.get('/summary', async (req, res) => {
         SELECT DISTINCT user_id FROM leave_requests 
         WHERE status = 'Approved' AND ? BETWEEN start_date AND end_date
       )
-    `, [todayStr, todayStr]);
+    `, [todayStr]);
 
     // Fetch all users (employees + admins) with today's work description and active approved leave info via LEFT JOIN
     const [rows] = await pool.query(`
@@ -214,7 +224,7 @@ router.get('/employees', async (req, res) => {
     const [rows] = await pool.query(query, params);
 
     const formatted = rows.map(e => {
-      let displayStatus = e.status || 'Working';
+      let displayStatus = 'Working';
       if (e.leave_type === 'Study Leave') {
         if (e.today_work && e.today_work.trim() !== '') {
           displayStatus = 'Study Leave / Work Today';
@@ -225,6 +235,8 @@ router.get('/employees', async (req, res) => {
         displayStatus = 'Half Day';
       } else if (e.leave_type) {
         displayStatus = 'On Leave';
+      } else if (e.status && e.status !== 'On Leave') {
+        displayStatus = e.status;
       }
 
       return {
@@ -347,12 +359,17 @@ router.post('/leave/approve', async (req, res) => {
       if (rows.length > 0) {
         const lReq = rows[0];
         const daysCount = parseFloat(lReq.days_count) || 1.0;
+        const todayStr = getTodayStr();
 
         // Mark leave as approved
         await pool.query('UPDATE leave_requests SET status = ? WHERE id = ?', ['Approved', id]);
 
-        // Set employee status to On Leave
-        await pool.query('UPDATE users SET status = ? WHERE id = ?', ['On Leave', lReq.user_id]);
+        // Set employee status to On Leave only if today is within leave date range
+        const startDateStr = lReq.start_date ? new Date(lReq.start_date).toISOString().split('T')[0] : '';
+        const endDateStr = lReq.end_date ? new Date(lReq.end_date).toISOString().split('T')[0] : '';
+        if (startDateStr && endDateStr && todayStr >= startDateStr && todayStr <= endDateStr) {
+          await pool.query('UPDATE users SET status = ? WHERE id = ?', ['On Leave', lReq.user_id]);
+        }
 
         // Upsert leave balance (deduct days)
         await pool.query(`
@@ -365,8 +382,11 @@ router.post('/leave/approve', async (req, res) => {
       const lReq = memoryStore.pendingLeaveRequests.find(l => l.id == id);
       if (lReq) {
         lReq.status = 'Approved';
+        const todayStr = getTodayStr();
         const emp = (memoryStore.allEmployees || []).find(e => e.id == lReq.user_id);
-        if (emp) emp.status = 'On Leave';
+        if (emp && lReq.start_date <= todayStr && lReq.end_date >= todayStr) {
+          emp.status = 'On Leave';
+        }
         const daysCount = parseFloat(lReq.days_count) || 1.0;
         memoryStore.leaveBalance.used_days = (memoryStore.leaveBalance.used_days || 0) + daysCount;
         memoryStore.leaveBalance.available_days = Math.max(0, memoryStore.leaveBalance.total_days - memoryStore.leaveBalance.used_days);
