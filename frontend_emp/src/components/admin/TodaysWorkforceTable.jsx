@@ -99,6 +99,20 @@ export default function TodaysWorkforceTable({ workforce = [] }) {
                           {emp.half_day_session === 'Morning' ? 'AM Leave' : 'PM Leave'}
                         </span>
                       </span>
+                    ) : emp.is_short_leave ? (
+                      <span 
+                        className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-bold border border-emerald-300 bg-emerald-50 text-emerald-800 shadow-2xs"
+                        title={`Short Leave today: ${emp.short_leave_time || 'Time window'} (${emp.short_leave_duration || 0} hrs)`}
+                      >
+                        <span className="w-2.5 h-2.5 rounded-full overflow-hidden flex border border-emerald-400 shrink-0 shadow-2xs">
+                          <span className="w-1/2 h-full bg-emerald-500"></span>
+                          <span className="w-1/2 h-full bg-teal-500"></span>
+                        </span>
+                        <span>Working</span>
+                        <span className="bg-teal-100 text-teal-800 border border-teal-300/80 text-[10px] px-1.5 py-0.2 rounded font-bold">
+                          Short Leave ({emp.short_leave_time})
+                        </span>
+                      </span>
                     ) : (
                       <span className={`inline-block whitespace-nowrap border text-[11px] font-bold px-2.5 py-0.5 rounded-md ${
                         emp.status && emp.status.includes('Study Leave')

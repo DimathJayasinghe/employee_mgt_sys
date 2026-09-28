@@ -37,7 +37,7 @@ export default function TodaysLeaveCards({ leaves = [] }) {
                 <div>
                   <span className="text-[11px] text-slate-400 font-medium block">Leave type</span>
                   <span className="font-bold text-slate-800 text-xs mt-0.5 block">
-                    {item.leave_type === 'Power Cut' ? '⚡ Power Cut' : (item.leave_type || 'Leave')}
+                    {item.leave_type === 'Power Cut' ? '⚡ Power Cut' : item.leave_type === 'Short Leave' ? '⏱️ Short Leave' : (item.leave_type || 'Leave')}
                   </span>
                 </div>
                 <div>

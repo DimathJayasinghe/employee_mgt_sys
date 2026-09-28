@@ -74,6 +74,10 @@ export default function PendingLeaveRequestsTable({ requests = [], onApprove, on
                       <span className="bg-purple-50 text-purple-700 border border-purple-200/80 text-[11px] font-bold px-2.5 py-1 rounded-md inline-flex items-center gap-1">
                         🔄 Special Leave
                       </span>
+                    ) : req.leave_type === 'Short Leave' ? (
+                      <span className="bg-teal-50 text-teal-700 border border-teal-200 text-[11px] font-bold px-2.5 py-1 rounded-md inline-flex items-center gap-1">
+                        ⏱️ Short Leave
+                      </span>
                     ) : req.leave_type === 'Power Cut' ? (
                       <span className="bg-amber-50 text-amber-800 border border-amber-300 text-[11px] font-bold px-2.5 py-1 rounded-md inline-flex items-center gap-1 shadow-2xs">
                         ⚡ Power Cut

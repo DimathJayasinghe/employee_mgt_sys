@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, CalendarPlus, Plus, Trash2, Zap, Laptop, Smartphone } from 'lucide-react';
+import { X, CalendarPlus, Plus, Trash2, Zap, Laptop, Smartphone, Clock, AlertTriangle, ArrowRight } from 'lucide-react';
 
 const ALL_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
@@ -11,6 +11,10 @@ export default function ApplyLeaveModal({ isOpen, onClose, onSubmitLeave, user }
   const [pendingDay, setPendingDay] = useState('Monday');
   const [pendingSession, setPendingSession] = useState('Full Day');
   
+  // Short Leave Fields
+  const [startTime, setStartTime] = useState('09:00');
+  const [endTime, setEndTime] = useState('11:30');
+
   // Power Cut Special Leave Fields
   const [laptopBattery, setLaptopBattery] = useState('');
   const [mobileBattery, setMobileBattery] = useState('');
@@ -31,6 +35,8 @@ export default function ApplyLeaveModal({ isOpen, onClose, onSubmitLeave, user }
     setSpecialEntries([]);
     setPendingDay('Monday');
     setPendingSession('Full Day');
+    setStartTime('09:00');
+    setEndTime('11:30');
     setLaptopBattery('');
     setMobileBattery('');
     setPowerCutDetails('');
@@ -42,6 +48,7 @@ export default function ApplyLeaveModal({ isOpen, onClose, onSubmitLeave, user }
   };
 
   const isHalfDay = leaveType === 'Half Day';
+  const isShortLeave = leaveType === 'Short Leave';
   const isSpecialLeave = leaveType === 'Special Leave';
   const isPowerCut = leaveType === 'Power Cut';
 
@@ -54,12 +61,28 @@ export default function ApplyLeaveModal({ isOpen, onClose, onSubmitLeave, user }
     return diff > 0 ? diff : 1;
   };
 
+  const calculateShortLeaveDuration = (sTime, eTime) => {
+    if (!sTime || !eTime) return 0;
+    const [sH, sM] = sTime.split(':').map(Number);
+    const [eH, eM] = eTime.split(':').map(Number);
+    const diffMinutes = (eH * 60 + (sM !== undefined ? eM : 0)) - (sH * 60 + (sM !== undefined ? sM : 0));
+    return diffMinutes / 60;
+  };
+
+  const shortLeaveHours = calculateShortLeaveDuration(startTime, endTime);
+  const isShortLeaveExceeded = isShortLeave && shortLeaveHours > 3.0;
+  const isShortLeaveInvalidTime = isShortLeave && shortLeaveHours <= 0;
+
   const handleStartDateChange = (val) => {
     setStartDate(val);
     setErrorMsg('');
-    if (isHalfDay || isSpecialLeave || isPowerCut) {
+    if (isHalfDay || isShortLeave || isSpecialLeave || isPowerCut) {
       setEndDate(val);
-      setDaysCount(isHalfDay || isSpecialLeave ? 0.5 : 1);
+      if (isShortLeave) {
+        setDaysCount(shortLeaveHours > 0 ? Math.min(0.5, +(shortLeaveHours / 8).toFixed(2)) : 0.25);
+      } else {
+        setDaysCount(isHalfDay || isSpecialLeave ? 0.5 : 1);
+      }
     } else {
       const targetEnd = endDate && endDate >= val ? endDate : val;
       if (!endDate || endDate < val) setEndDate(val);
@@ -81,6 +104,10 @@ export default function ApplyLeaveModal({ isOpen, onClose, onSubmitLeave, user }
     if (newType === 'Half Day' || newType === 'Special Leave') {
       setDaysCount(0.5);
       if (startDate) setEndDate(startDate);
+    } else if (newType === 'Short Leave') {
+      const hrs = calculateShortLeaveDuration(startTime, endTime);
+      setDaysCount(hrs > 0 ? Math.min(0.5, +(hrs / 8).toFixed(2)) : 0.25);
+      if (startDate) setEndDate(startDate);
     } else if (newType === 'Power Cut') {
       setDaysCount(1);
       if (startDate) setEndDate(startDate);
@@ -91,6 +118,26 @@ export default function ApplyLeaveModal({ isOpen, onClose, onSubmitLeave, user }
         setDaysCount(1);
       }
     }
+  };
+
+  const handleStartTimeChange = (val) => {
+    setStartTime(val);
+    setErrorMsg('');
+    const hrs = calculateShortLeaveDuration(val, endTime);
+    setDaysCount(hrs > 0 ? Math.min(0.5, +(hrs / 8).toFixed(2)) : 0.25);
+  };
+
+  const handleEndTimeChange = (val) => {
+    setEndTime(val);
+    setErrorMsg('');
+    const hrs = calculateShortLeaveDuration(startTime, val);
+    setDaysCount(hrs > 0 ? Math.min(0.5, +(hrs / 8).toFixed(2)) : 0.25);
+  };
+
+  const switchToHalfDay = () => {
+    setLeaveType('Half Day');
+    setDaysCount(0.5);
+    setErrorMsg('');
   };
 
   const addSpecialEntry = () => {
@@ -125,6 +172,22 @@ export default function ApplyLeaveModal({ isOpen, onClose, onSubmitLeave, user }
       return;
     }
 
+    if (isShortLeave) {
+      if (!startTime || !endTime) {
+        setErrorMsg('Please specify both Start Time and End Time for Short Leave.');
+        return;
+      }
+      const hrs = calculateShortLeaveDuration(startTime, endTime);
+      if (hrs <= 0) {
+        setErrorMsg('End Time must be later than Start Time.');
+        return;
+      }
+      if (hrs > 3.0) {
+        setErrorMsg(`Short Leave cannot exceed 3 hours (Selected: ${hrs.toFixed(1)} hrs). Please apply for a Half Day leave instead.`);
+        return;
+      }
+    }
+
     if (isSpecialLeave && specialEntries.length === 0) {
       setErrorMsg('Please add at least one day for Special Leave.');
       return;
@@ -141,14 +204,18 @@ export default function ApplyLeaveModal({ isOpen, onClose, onSubmitLeave, user }
       }
     }
 
-    const finalEndDate = (isHalfDay || isSpecialLeave || isPowerCut) ? startDate : endDate;
+    const finalEndDate = (isHalfDay || isShortLeave || isSpecialLeave || isPowerCut) ? startDate : endDate;
     if (!finalEndDate) return;
 
     setIsSubmitting(true);
     setErrorMsg('');
     try {
       const specialDaysTotal = sortedEntries.reduce((sum, e) => sum + (e.session === 'Full Day' ? 1 : 0.5), 0);
-      const finalDaysCount = isSpecialLeave ? specialDaysTotal : (isHalfDay ? 0.5 : (Number(daysCount) || 1));
+      const finalDaysCount = isSpecialLeave 
+        ? specialDaysTotal 
+        : isShortLeave 
+        ? Math.min(0.5, +(shortLeaveHours / 8).toFixed(2))
+        : (isHalfDay ? 0.5 : (Number(daysCount) || 1));
 
       // Build the day_of_week string: "Monday:Full Day,Wednesday:Half Day"
       const dayOfWeekStr = isSpecialLeave
@@ -158,6 +225,8 @@ export default function ApplyLeaveModal({ isOpen, onClose, onSubmitLeave, user }
       let finalReason = reason;
       if (isHalfDay) {
         finalReason = `[${halfDaySession} Half Day] ${reason}`.trim();
+      } else if (isShortLeave) {
+        finalReason = `[Short Leave: ${startTime} - ${endTime} (${shortLeaveHours.toFixed(1)} hrs)] ${reason}`.trim();
       } else if (isSpecialLeave) {
         const entryDesc = sortedEntries.map(e => `${e.day} (${e.session})`).join(', ');
         finalReason = `[Special Leave - ${entryDesc}] ${reason}`.trim();
@@ -172,9 +241,9 @@ export default function ApplyLeaveModal({ isOpen, onClose, onSubmitLeave, user }
         end_date: finalEndDate,
         days_count: finalDaysCount,
         day_of_week: dayOfWeekStr,
-        start_time: isHalfDay ? (halfDaySession === 'Morning' ? '08:30:00' : '12:30:00') : null,
-        end_time: isHalfDay ? (halfDaySession === 'Morning' ? '12:30:00' : '17:30:00') : null,
-        special_session: isHalfDay ? halfDaySession : null,
+        start_time: isShortLeave ? (startTime + ':00') : isHalfDay ? (halfDaySession === 'Morning' ? '08:30:00' : '12:30:00') : null,
+        end_time: isShortLeave ? (endTime + ':00') : isHalfDay ? (halfDaySession === 'Morning' ? '12:30:00' : '17:30:00') : null,
+        special_session: isHalfDay ? halfDaySession : isShortLeave ? `${shortLeaveHours.toFixed(1)} hrs` : null,
         is_recurring: isSpecialLeave ? 1 : 0,
         reason: finalReason
       });
@@ -187,6 +256,8 @@ export default function ApplyLeaveModal({ isOpen, onClose, onSubmitLeave, user }
       let leaveDurationStr = '';
       if (isSpecialLeave) {
         leaveDurationStr = sortedEntries.map(e => `${e.day} (${e.session})`).join(', ') + ` starting ${startDate}`;
+      } else if (isShortLeave) {
+        leaveDurationStr = `${startDate} (${startTime} to ${endTime} · ${shortLeaveHours.toFixed(1)} hrs)`;
       } else if (isPowerCut) {
         leaveDurationStr = `${startDate} (Power Cut)`;
       } else {
@@ -202,7 +273,7 @@ export default function ApplyLeaveModal({ isOpen, onClose, onSubmitLeave, user }
 `*New Leave Request Submission*
 ----------------------------------
 *Employee Name:* ${empName}${empDept}
-*Leave Type:* ${isPowerCut ? '⚡ Power Cut' : leaveType}
+*Leave Type:* ${isShortLeave ? '⏱️ Short Leave' : isPowerCut ? '⚡ Power Cut' : leaveType}
 *Duration / Date:* ${leaveDurationStr}${extraWaDetails ? extraWaDetails : `\n*Reason / Details:* ${finalReason || 'None'}`}
 ----------------------------------
 Submitted via P W Holdings Employee Management System`;
@@ -259,16 +330,92 @@ Submitted via P W Holdings Employee Management System`;
             <select
               value={leaveType}
               onChange={(e) => handleLeaveTypeChange(e.target.value)}
-              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-medium"
+              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-medium cursor-pointer"
             >
               <option value="Casual Leave">Casual Leave</option>
               <option value="Medical Leave">Medical Leave</option>
               <option value="Half Day">Half Day</option>
+              <option value="Short Leave">⏱️ Short Leave (Max 3 hrs)</option>
               <option value="Study Leave">Study Leave</option>
               <option value="Special Leave">Special Leave (Weekly Recurring)</option>
               <option value="Power Cut">⚡ Power Cut (Emergency Leave)</option>
             </select>
           </div>
+
+          {/* Short Leave Section */}
+          {isShortLeave && (
+            <div className="bg-teal-50/70 p-4 rounded-xl border border-teal-200/80 space-y-3.5 animate-in fade-in duration-150">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-teal-900 font-bold text-xs">
+                  <Clock className="w-4 h-4 text-teal-600" />
+                  <span>Short Leave Time Window (Max 3 Hours)</span>
+                </div>
+                {shortLeaveHours > 0 && shortLeaveHours <= 3.0 && (
+                  <span className="bg-teal-100/80 text-teal-800 border border-teal-300 text-[10px] font-extrabold px-2 py-0.5 rounded-md">
+                    {shortLeaveHours.toFixed(1)} hrs duration
+                  </span>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-semibold text-teal-950 mb-1">
+                    Start Time <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="time"
+                    required
+                    value={startTime}
+                    onChange={(e) => handleStartTimeChange(e.target.value)}
+                    className="w-full border border-teal-200 rounded-xl px-3 py-2 text-xs text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 font-semibold"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-teal-950 mb-1">
+                    End Time <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="time"
+                    required
+                    value={endTime}
+                    onChange={(e) => handleEndTimeChange(e.target.value)}
+                    className="w-full border border-teal-200 rounded-xl px-3 py-2 text-xs text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 font-semibold"
+                  />
+                </div>
+              </div>
+
+              {/* Exceed 3 Hours Warning & Switch Prompt */}
+              {isShortLeaveExceeded && (
+                <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 text-xs space-y-2 animate-in fade-in">
+                  <div className="flex items-start gap-2 text-rose-800 font-semibold">
+                    <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                    <span>
+                      Short Leave cannot exceed 3 hours. Your selected duration is <strong className="text-rose-950 underline">{shortLeaveHours.toFixed(1)} hours</strong>.
+                    </span>
+                  </div>
+                  <p className="text-slate-600 text-[11px]">
+                    If you need more than 3 hours of leave, please switch to a <strong>Half Day</strong> leave request.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={switchToHalfDay}
+                    className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-1.5 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-colors shadow-2xs cursor-pointer text-xs"
+                  >
+                    <span>Switch to Half Day Leave</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+
+              {isShortLeaveInvalidTime && (
+                <div className="bg-amber-50 border border-amber-200 text-amber-800 text-xs p-2.5 rounded-xl font-semibold flex items-center gap-2">
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                  <span>End Time must be later than Start Time.</span>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Power Cut Leave Section */}
           {isPowerCut && (
@@ -455,7 +602,7 @@ Submitted via P W Holdings Employee Management System`;
           )}
 
           {/* Date Fields */}
-          {(isHalfDay || isSpecialLeave || isPowerCut) ? (
+          {(isHalfDay || isShortLeave || isSpecialLeave || isPowerCut) ? (
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
                 {isSpecialLeave ? 'Effective Start Date' : 'Date'}
@@ -510,12 +657,14 @@ Submitted via P W Holdings Employee Management System`;
 
           {!isPowerCut && (
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Reason (Optional)</label>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Reason {isShortLeave ? '(Optional)' : '(Optional)'}
+              </label>
               <textarea
                 rows={2}
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                placeholder="Brief reason for your leave request..."
+                placeholder={isShortLeave ? "Optional brief reason for short leave..." : "Brief reason for your leave request..."}
                 className="w-full border border-slate-200 rounded-xl p-3 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 resize-none font-medium"
               />
             </div>
@@ -532,8 +681,8 @@ Submitted via P W Holdings Employee Management System`;
             </button>
             <button
               type="submit"
-              disabled={isSubmitting}
-              className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-4 py-2 rounded-xl shadow-xs transition-colors disabled:opacity-50"
+              disabled={isSubmitting || (isShortLeave && (isShortLeaveExceeded || isShortLeaveInvalidTime))}
+              className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-4 py-2 rounded-xl shadow-xs transition-colors disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
             >
               {isSubmitting ? 'Submitting...' : 'Submit Request'}
             </button>

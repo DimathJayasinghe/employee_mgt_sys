@@ -27,7 +27,7 @@ export default function AdminAllEmployeesView() {
   };
 
   const departments = ['All departments', 'IT', 'Finance'];
-  const statusOptions = ['All statuses', 'Working', 'All Leave', 'On Leave', 'Half Day', 'Study Leave'];
+  const statusOptions = ['All statuses', 'Working', 'All Leave', 'On Leave', 'Half Day', 'Short Leave', 'Study Leave'];
 
   const filtered = employees.filter(emp => {
     const matchesSearch = emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -40,6 +40,8 @@ export default function AdminAllEmployeesView() {
       matchesStatus = emp.status && emp.status !== 'Working';
     } else if (statusFilter === 'Working') {
       matchesStatus = emp.status === 'Working';
+    } else if (statusFilter === 'Short Leave') {
+      matchesStatus = emp.is_short_leave || (emp.status && emp.status.toLowerCase().includes('short leave'));
     } else if (statusFilter !== 'All statuses') {
       matchesStatus = emp.status && emp.status.toLowerCase().includes(statusFilter.toLowerCase());
     }
@@ -152,6 +154,28 @@ export default function AdminAllEmployeesView() {
                           <span className="w-2 h-2 rounded-full bg-amber-500"></span>
                           <span>Half Day ({emp.half_day_session})</span>
                         </span>
+                      ) : emp.is_short_leave && !emp.short_leave_now ? (
+                        <span 
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold border border-emerald-300 bg-emerald-50 text-emerald-800 shadow-2xs"
+                          title={`Short Leave today: ${emp.short_leave_time || 'Time window'} (${emp.short_leave_duration || 0} hrs)`}
+                        >
+                          <span className="w-2.5 h-2.5 rounded-full overflow-hidden flex border border-emerald-400 shrink-0 shadow-2xs">
+                            <span className="w-1/2 h-full bg-emerald-500"></span>
+                            <span className="w-1/2 h-full bg-teal-500"></span>
+                          </span>
+                          <span>Working</span>
+                          <span className="bg-teal-100 text-teal-800 border border-teal-300/80 text-[10px] px-1.5 py-0.2 rounded font-bold">
+                            Short Leave ({emp.short_leave_time})
+                          </span>
+                        </span>
+                      ) : emp.is_short_leave && emp.short_leave_now ? (
+                        <span 
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold border border-teal-200 bg-teal-50 text-teal-700 shadow-2xs"
+                          title={`Currently on Short Leave: ${emp.short_leave_time || 'Time window'} (${emp.short_leave_duration || 0} hrs)`}
+                        >
+                          <span className="w-2 h-2 rounded-full bg-teal-500 animate-pulse"></span>
+                          <span>Short Leave ({emp.short_leave_time})</span>
+                        </span>
                       ) : (
                         <span className={`inline-block whitespace-nowrap px-2.5 py-1 rounded-md text-[11px] font-bold border ${
                           emp.status === 'Working'
@@ -160,6 +184,8 @@ export default function AdminAllEmployeesView() {
                             ? 'bg-rose-50 text-rose-600 border-rose-200'
                             : emp.status && emp.status.includes('Half Day')
                             ? 'bg-amber-50 text-amber-600 border-amber-200'
+                            : emp.status && emp.status.includes('Short Leave')
+                            ? 'bg-teal-50 text-teal-700 border-teal-200'
                             : 'bg-sky-50 text-sky-600 border-sky-200'
                         }`}>
                           {emp.status}

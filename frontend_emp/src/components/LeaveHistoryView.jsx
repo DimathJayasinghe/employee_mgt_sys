@@ -61,6 +61,7 @@ export default function LeaveHistoryView({ userId, onOpenApplyLeave }) {
             <tbody className="divide-y divide-slate-100 font-medium">
               {leaves.map((leave) => {
                 const isSpecial = leave.leave_type === 'Special Leave';
+                const isShortLeave = leave.leave_type === 'Short Leave';
                 const isPowerCut = leave.leave_type === 'Power Cut';
                 const sDate = leave.start_date ? leave.start_date.split('T')[0] : '';
                 const eDate = leave.end_date ? leave.end_date.split('T')[0] : '';
@@ -70,6 +71,8 @@ export default function LeaveHistoryView({ userId, onOpenApplyLeave }) {
                       if (t.includes(':')) { const [d, s] = t.split(':'); return `${d.slice(0,3)} (${s})`; }
                       return t;
                     }).join(', ') + ` starting ${sDate}`
+                  : isShortLeave && leave.start_time && leave.end_time
+                  ? `${sDate} (${leave.start_time.slice(0,5)} - ${leave.end_time.slice(0,5)})`
                   : (sDate === eDate ? sDate : `${sDate} to ${eDate}`);
 
                 return (
@@ -79,6 +82,10 @@ export default function LeaveHistoryView({ userId, onOpenApplyLeave }) {
                         <span className="bg-purple-50 text-purple-700 border border-purple-200/80 text-[11px] font-bold px-2.5 py-1 rounded-md inline-flex items-center gap-1">
                           🔄 Special Leave
                         </span>
+                      ) : isShortLeave ? (
+                        <span className="bg-teal-50 text-teal-700 border border-teal-200 text-[11px] font-bold px-2.5 py-1 rounded-md inline-flex items-center gap-1">
+                          ⏱️ Short Leave
+                        </span>
                       ) : isPowerCut ? (
                         <span className="bg-amber-50 text-amber-800 border border-amber-300 text-[11px] font-bold px-2.5 py-1 rounded-md inline-flex items-center gap-1 shadow-2xs">
                           ⚡ Power Cut
@@ -86,7 +93,7 @@ export default function LeaveHistoryView({ userId, onOpenApplyLeave }) {
                       ) : leave.leave_type}
                     </td>
                     <td className="px-6 py-4 text-slate-600">{durationText}</td>
-                    <td className="px-6 py-4 text-slate-700 font-semibold">{isSpecial && leave.day_of_week ? `Every ${leave.day_of_week}` : leave.days_count}</td>
+                    <td className="px-6 py-4 text-slate-700 font-semibold">{isSpecial && leave.day_of_week ? `Every ${leave.day_of_week}` : isShortLeave ? `${leave.days_count} day` : leave.days_count}</td>
                     <td className="px-6 py-4 text-slate-500 max-w-xs truncate">{leave.reason || 'N/A'}</td>
                     <td className="px-6 py-4">
                       <span className={`px-2.5 py-1 rounded-xl text-[11px] font-bold border ${

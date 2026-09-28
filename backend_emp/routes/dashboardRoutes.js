@@ -42,6 +42,60 @@ function getHalfDayDetails(activeLeave) {
   };
 }
 
+// Helper to format HH:MM:SS to 12-hour AM/PM format
+function formatTime12(timeStr) {
+  if (!timeStr) return '';
+  const parts = timeStr.split(':').map(Number);
+  const h = parts[0] || 0;
+  const m = parts[1] || 0;
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const h12 = h % 12 || 12;
+  return `${String(h12).padStart(2, '0')}:${String(m).padStart(2, '0')} ${ampm}`;
+}
+
+// Helper to determine active Short Leave time window (strictly <= 3 hours)
+function getShortLeaveDetails(activeLeave) {
+  if (!activeLeave || activeLeave.leave_type !== 'Short Leave') {
+    return null;
+  }
+
+  let startTime = activeLeave.start_time || '09:00:00';
+  let endTime = activeLeave.end_time || '11:30:00';
+
+  if (!activeLeave.start_time && activeLeave.reason) {
+    const match = activeLeave.reason.match(/(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})/);
+    if (match) {
+      startTime = match[1] + ':00';
+      endTime = match[2] + ':00';
+    }
+  }
+
+  const now = new Date();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+  const [sH, sM] = startTime.split(':').map(Number);
+  const [eH, eM] = endTime.split(':').map(Number);
+  const startMinutes = (sH || 0) * 60 + (sM || 0);
+  const endMinutes = (eH || 0) * 60 + (eM || 0);
+
+  const isLeaveNow = currentMinutes >= startMinutes && currentMinutes <= endMinutes;
+  const durationHours = Math.max(0, (endMinutes - startMinutes) / 60).toFixed(1);
+
+  const formattedStart = formatTime12(startTime);
+  const formattedEnd = formatTime12(endTime);
+  const timeRange = `${formattedStart} - ${formattedEnd}`;
+
+  return {
+    is_short_leave: true,
+    short_leave_now: isLeaveNow,
+    start_time: startTime,
+    end_time: endTime,
+    time_range: timeRange,
+    leave_time: timeRange,
+    duration_hours: durationHours
+  };
+}
+
 // GET /api/dashboard/summary?user_id=X
 router.get('/dashboard/summary', async (req, res) => {
   const userId = parseInt(req.query.user_id);
@@ -79,6 +133,7 @@ router.get('/dashboard/summary', async (req, res) => {
 
       let calculatedStatus = 'Working';
       let hdDetails = null;
+      let slDetails = null;
       if (activeLeavesToday && activeLeavesToday.length > 0) {
         const al = activeLeavesToday[0];
         if (al.leave_type === 'Study Leave') {
@@ -86,6 +141,9 @@ router.get('/dashboard/summary', async (req, res) => {
         } else if (al.leave_type === 'Half Day') {
           hdDetails = getHalfDayDetails(al);
           calculatedStatus = hdDetails.half_day_leave_now ? `Half Day (${hdDetails.half_day_session})` : 'Working';
+        } else if (al.leave_type === 'Short Leave') {
+          slDetails = getShortLeaveDetails(al);
+          calculatedStatus = slDetails.short_leave_now ? 'Short Leave' : 'Working';
         } else {
           calculatedStatus = 'On Leave';
         }
@@ -97,7 +155,7 @@ router.get('/dashboard/summary', async (req, res) => {
         `SELECT id, leave_type, 
                 DATE_FORMAT(start_date, '%Y-%m-%d') AS start_date, 
                 DATE_FORMAT(end_date, '%Y-%m-%d') AS end_date, 
-                days_count, day_of_week, special_session, status, reason 
+                days_count, day_of_week, start_time, end_time, special_session, status, reason 
          FROM leave_requests WHERE user_id = ? ORDER BY created_at DESC LIMIT 5`,
         [userId]
       );
@@ -114,7 +172,11 @@ router.get('/dashboard/summary', async (req, res) => {
           half_day_session: hdDetails ? hdDetails.half_day_session : null,
           half_day_leave_now: hdDetails ? hdDetails.half_day_leave_now : false,
           half_day_time: hdDetails ? hdDetails.leave_time : null,
-          half_day_working_time: hdDetails ? hdDetails.working_time : null
+          half_day_working_time: hdDetails ? hdDetails.working_time : null,
+          is_short_leave: slDetails ? slDetails.is_short_leave : false,
+          short_leave_now: slDetails ? slDetails.short_leave_now : false,
+          short_leave_time: slDetails ? slDetails.time_range : null,
+          short_leave_duration: slDetails ? slDetails.duration_hours : null
         },
         todayWork: todayEntry,
         leaveBalance: { total_days: balance.total_days, used_days: balance.used_days, available_days },

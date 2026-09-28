@@ -94,6 +94,8 @@ export default function LeaveCalendarView() {
         return 'bg-blue-50 text-blue-700 border-blue-200';
       case 'Half Day':
         return 'bg-amber-50 text-amber-700 border-amber-200';
+      case 'Short Leave':
+        return 'bg-teal-50 text-teal-700 border-teal-200';
       case 'Study Leave':
         return 'bg-purple-50 text-purple-700 border-purple-200';
       case 'Medical Leave':
@@ -111,6 +113,7 @@ export default function LeaveCalendarView() {
     switch (type) {
       case 'Casual Leave': return 'bg-blue-500';
       case 'Half Day': return 'bg-amber-500';
+      case 'Short Leave': return 'bg-teal-500';
       case 'Study Leave': return 'bg-purple-500';
       case 'Medical Leave': return 'bg-rose-500';
       case 'Annual Leave': return 'bg-emerald-500';

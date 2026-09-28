@@ -13,6 +13,7 @@ export default function RecentLeaveRequestsCard({ requests = [] }) {
         <div className="divide-y divide-slate-100">
           {requests.map((req) => {
             const isSpecial = req.leave_type === 'Special Leave';
+            const isShortLeave = req.leave_type === 'Short Leave';
             const isPowerCut = req.leave_type === 'Power Cut';
             const daysText = isSpecial && req.day_of_week 
               ? req.day_of_week.split(',').map(p => {
@@ -20,6 +21,8 @@ export default function RecentLeaveRequestsCard({ requests = [] }) {
                   if (t.includes(':')) { const [d, s] = t.split(':'); return `${d.slice(0,3)} (${s})`; }
                   return t;
                 }).join(', ')
+              : isShortLeave && req.start_time && req.end_time
+              ? `${req.start_time.slice(0,5)} - ${req.end_time.slice(0,5)}`
               : `${req.days_count} ${req.days_count === 1 ? 'Day' : 'Days'}`;
             const dateFormatted = req.start_date ? req.start_date.split('T')[0] : '';
 
@@ -30,6 +33,10 @@ export default function RecentLeaveRequestsCard({ requests = [] }) {
                     {isSpecial ? (
                       <span className="text-purple-700 font-bold flex items-center gap-1">
                         🔄 Special Leave
+                      </span>
+                    ) : isShortLeave ? (
+                      <span className="text-teal-700 font-bold flex items-center gap-1">
+                        ⏱️ Short Leave
                       </span>
                     ) : isPowerCut ? (
                       <span className="text-amber-800 font-bold flex items-center gap-1">

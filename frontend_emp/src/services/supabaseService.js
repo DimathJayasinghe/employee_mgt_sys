@@ -72,6 +72,61 @@ function getHalfDayDetails(activeLeave) {
   };
 }
 
+// Helper to format HH:MM:SS to 12-hour AM/PM format
+function formatTime12(timeStr) {
+  if (!timeStr) return '';
+  const parts = timeStr.split(':').map(Number);
+  const h = parts[0] || 0;
+  const m = parts[1] || 0;
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const h12 = h % 12 || 12;
+  return `${String(h12).padStart(2, '0')}:${String(m).padStart(2, '0')} ${ampm}`;
+}
+
+// Helper to determine active Short Leave time window (strictly <= 3 hours)
+function getShortLeaveDetails(activeLeave) {
+  if (!activeLeave || activeLeave.leave_type !== 'Short Leave') {
+    return null;
+  }
+
+  let startTime = activeLeave.start_time || '09:00:00';
+  let endTime = activeLeave.end_time || '11:30:00';
+
+  // Fallback extraction from reason if start_time/end_time wasn't saved in column
+  if (!activeLeave.start_time && activeLeave.reason) {
+    const match = activeLeave.reason.match(/(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})/);
+    if (match) {
+      startTime = match[1] + ':00';
+      endTime = match[2] + ':00';
+    }
+  }
+
+  const now = new Date();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+  const [sH, sM] = startTime.split(':').map(Number);
+  const [eH, eM] = endTime.split(':').map(Number);
+  const startMinutes = (sH || 0) * 60 + (sM || 0);
+  const endMinutes = (eH || 0) * 60 + (eM || 0);
+
+  const isLeaveNow = currentMinutes >= startMinutes && currentMinutes <= endMinutes;
+  const durationHours = Math.max(0, (endMinutes - startMinutes) / 60).toFixed(1);
+
+  const formattedStart = formatTime12(startTime);
+  const formattedEnd = formatTime12(endTime);
+  const timeRange = `${formattedStart} - ${formattedEnd}`;
+
+  return {
+    is_short_leave: true,
+    short_leave_now: isLeaveNow,
+    start_time: startTime,
+    end_time: endTime,
+    time_range: timeRange,
+    leave_time: timeRange,
+    duration_hours: durationHours
+  };
+}
+
 // -------------------------------------------------------------
 // AUTH SERVICES
 // -------------------------------------------------------------
@@ -326,6 +381,7 @@ export const dashboardService = {
 
     let calculatedStatus = 'Working';
     let hdDetails = null;
+    let slDetails = null;
     if (activeLeavesToday && activeLeavesToday.length > 0) {
       const activeLeave = activeLeavesToday[0];
       if (activeLeave.leave_type === 'Study Leave') {
@@ -333,6 +389,9 @@ export const dashboardService = {
       } else if (activeLeave.leave_type === 'Half Day') {
         hdDetails = getHalfDayDetails(activeLeave);
         calculatedStatus = hdDetails.half_day_leave_now ? `Half Day (${hdDetails.half_day_session})` : 'Working';
+      } else if (activeLeave.leave_type === 'Short Leave') {
+        slDetails = getShortLeaveDetails(activeLeave);
+        calculatedStatus = slDetails.short_leave_now ? 'Short Leave' : 'Working';
       } else {
         calculatedStatus = 'On Leave';
       }
@@ -348,7 +407,7 @@ export const dashboardService = {
     // 5. Fetch Recent Leave Requests (5 most recent)
     const { data: leaves } = await supabase
       .from('leave_requests')
-      .select('id, leave_type, start_date, end_date, days_count, day_of_week, special_session, status, reason, created_at')
+      .select('id, leave_type, start_date, end_date, days_count, day_of_week, start_time, end_time, special_session, status, reason, created_at')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(5);
@@ -366,7 +425,11 @@ export const dashboardService = {
         half_day_session: hdDetails ? hdDetails.half_day_session : null,
         half_day_leave_now: hdDetails ? hdDetails.half_day_leave_now : false,
         half_day_time: hdDetails ? hdDetails.leave_time : null,
-        half_day_working_time: hdDetails ? hdDetails.working_time : null
+        half_day_working_time: hdDetails ? hdDetails.working_time : null,
+        is_short_leave: slDetails ? slDetails.is_short_leave : false,
+        short_leave_now: slDetails ? slDetails.short_leave_now : false,
+        short_leave_time: slDetails ? slDetails.time_range : null,
+        short_leave_duration: slDetails ? slDetails.duration_hours : null
       },
       todayWork: todayEntry,
       leaveBalance: {
@@ -444,7 +507,7 @@ export const dashboardService = {
         day_of_week: day_of_week || null,
         start_time: start_time || null,
         end_time: end_time || null,
-        special_session: isSpecial ? (special_session || 'Morning') : null,
+        special_session: isSpecial ? (special_session || 'Morning') : special_session || null,
         is_recurring: finalRecurring,
         status: 'Pending',
         reason: reason || ''
@@ -552,6 +615,7 @@ export const adminService = {
 
       let displayStatus = 'Working';
       let hd = null;
+      let sl = null;
 
       if (activeLeave) {
         if (activeLeave.leave_type === 'Study Leave') {
@@ -559,11 +623,19 @@ export const adminService = {
         } else if (activeLeave.leave_type === 'Half Day') {
           hd = getHalfDayDetails(activeLeave);
           displayStatus = hd.half_day_leave_now ? `Half Day (${hd.half_day_session})` : 'Working';
+        } else if (activeLeave.leave_type === 'Short Leave') {
+          sl = getShortLeaveDetails(activeLeave);
+          displayStatus = sl.short_leave_now ? 'Short Leave' : 'Working';
         } else {
           displayStatus = 'On Leave';
         }
 
-        const isActivelyOnLeave = activeLeave.leave_type === 'Half Day' ? hd.half_day_leave_now : true;
+        const isActivelyOnLeave = activeLeave.leave_type === 'Half Day' 
+          ? hd.half_day_leave_now 
+          : activeLeave.leave_type === 'Short Leave'
+          ? sl.short_leave_now
+          : true;
+
         if (isActivelyOnLeave && u.status !== 'On Leave') {
           userIdsToOnLeave.push(u.id);
         } else if (!isActivelyOnLeave && u.status === 'On Leave') {
@@ -589,7 +661,11 @@ export const adminService = {
         half_day_session: hd ? hd.half_day_session : null,
         half_day_leave_now: hd ? hd.half_day_leave_now : false,
         half_day_time: hd ? hd.leave_time : null,
-        half_day_working_time: hd ? hd.working_time : null
+        half_day_working_time: hd ? hd.working_time : null,
+        is_short_leave: sl ? sl.is_short_leave : false,
+        short_leave_now: sl ? sl.short_leave_now : false,
+        short_leave_time: sl ? sl.time_range : null,
+        short_leave_duration: sl ? sl.duration_hours : null
       };
 
       if (activeLeave) {
@@ -611,6 +687,20 @@ export const adminService = {
 
           if (hdInfo.half_day_leave_now) {
             onLeaveCount++;
+          } else {
+            workingCount++;
+            workingWorkforce.push(formattedEmp);
+          }
+        } else if (leaveType === 'Short Leave') {
+          const slInfo = sl || getShortLeaveDetails(activeLeave);
+          if (slInfo.short_leave_now) {
+            onLeaveCount++;
+            todaysLeave.push({
+              ...formattedEmp,
+              leave_type: 'Short Leave',
+              duration: `${slInfo.time_range} (${slInfo.duration_hours} hrs)`,
+              leave_reason: activeLeave.reason || 'Short Leave'
+            });
           } else {
             workingCount++;
             workingWorkforce.push(formattedEmp);
@@ -669,9 +759,11 @@ export const adminService = {
       applied_date: r.created_at ? r.created_at.split('T')[0] : '',
       duration: r.leave_type === 'Special Leave' && r.day_of_week
         ? formatSpecialDays(r.day_of_week)
-        : (r.leave_type === 'Half Day' && r.start_time && r.end_time)
-          ? `${r.start_time} - ${r.end_time} (${r.days_count} day)`
-          : `${r.days_count} ${r.days_count === 1 ? 'day' : 'days'}`
+        : (r.leave_type === 'Short Leave' && r.start_time && r.end_time)
+          ? `${formatTime12(r.start_time)} - ${formatTime12(r.end_time)}`
+          : (r.leave_type === 'Half Day' && r.start_time && r.end_time)
+            ? `${r.start_time} - ${r.end_time} (${r.days_count} day)`
+            : `${r.days_count} ${r.days_count === 1 ? 'day' : 'days'}`
     }));
 
     return {
@@ -734,6 +826,7 @@ export const adminService = {
       const todayWork = workMap[u.id] || '';
       let displayStatus = 'Working';
       let hd = null;
+      let sl = null;
 
       if (activeLeave) {
         if (activeLeave.leave_type === 'Study Leave') {
@@ -741,11 +834,19 @@ export const adminService = {
         } else if (activeLeave.leave_type === 'Half Day') {
           hd = getHalfDayDetails(activeLeave);
           displayStatus = hd.half_day_leave_now ? `Half Day (${hd.half_day_session})` : 'Working';
+        } else if (activeLeave.leave_type === 'Short Leave') {
+          sl = getShortLeaveDetails(activeLeave);
+          displayStatus = sl.short_leave_now ? 'Short Leave' : 'Working';
         } else {
           displayStatus = 'On Leave';
         }
 
-        const isActivelyOnLeave = activeLeave.leave_type === 'Half Day' ? hd.half_day_leave_now : true;
+        const isActivelyOnLeave = activeLeave.leave_type === 'Half Day' 
+          ? hd.half_day_leave_now 
+          : activeLeave.leave_type === 'Short Leave'
+          ? sl.short_leave_now
+          : true;
+
         if (isActivelyOnLeave && u.status !== 'On Leave') {
           userIdsToOnLeave.push(u.id);
         } else if (!isActivelyOnLeave && u.status === 'On Leave') {
@@ -772,7 +873,11 @@ export const adminService = {
         half_day_session: hd ? hd.half_day_session : null,
         half_day_leave_now: hd ? hd.half_day_leave_now : false,
         half_day_time: hd ? hd.leave_time : null,
-        half_day_working_time: hd ? hd.working_time : null
+        half_day_working_time: hd ? hd.working_time : null,
+        is_short_leave: sl ? sl.is_short_leave : false,
+        short_leave_now: sl ? sl.short_leave_now : false,
+        short_leave_time: sl ? sl.time_range : null,
+        short_leave_duration: sl ? sl.duration_hours : null
       };
     });
 
