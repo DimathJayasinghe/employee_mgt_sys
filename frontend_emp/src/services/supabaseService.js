@@ -530,6 +530,79 @@ export const dashboardService = {
     return { requests: requests || [] };
   },
 
+  async cancelLeave(id, userId) {
+    if (!id) throw new Error('id is required');
+    const todayStr = getTodayStr();
+
+    // 1. Fetch leave request
+    let query = supabase.from('leave_requests').select('*').eq('id', id);
+    if (userId) {
+      query = query.eq('user_id', userId);
+    }
+    const { data: requests, error: rErr } = await query;
+
+    if (rErr || !requests || requests.length === 0) {
+      throw new Error('Leave request not found');
+    }
+    const lReq = requests[0];
+
+    if (lReq.status === 'Cancelled') {
+      throw new Error('Leave request is already cancelled');
+    }
+
+    const previousStatus = lReq.status;
+
+    // 2. Update status to Cancelled
+    const { error: updateErr } = await supabase
+      .from('leave_requests')
+      .update({ status: 'Cancelled' })
+      .eq('id', id);
+
+    if (updateErr) throw new Error(updateErr.message || 'Failed to cancel leave request');
+
+    // 3. If the leave was already 'Approved', restore the quota/balance and revert user working status
+    if (previousStatus === 'Approved') {
+      const { data: balances } = await supabase
+        .from('leave_balances')
+        .select('*')
+        .eq('user_id', lReq.user_id);
+
+      if (balances && balances.length > 0) {
+        const currentUsed = parseFloat(balances[0].used_days || 0);
+        const leaveDays = parseFloat(lReq.days_count || 1);
+        const newUsed = Math.max(0, currentUsed - leaveDays);
+        await supabase
+          .from('leave_balances')
+          .update({ used_days: newUsed })
+          .eq('user_id', lReq.user_id);
+      }
+
+      // Check if employee has any other active approved leaves for today
+      const { data: otherActiveLeaves } = await supabase
+        .from('leave_requests')
+        .select('id')
+        .eq('user_id', lReq.user_id)
+        .eq('status', 'Approved')
+        .lte('start_date', todayStr)
+        .gte('end_date', todayStr)
+        .neq('id', id);
+
+      if (!otherActiveLeaves || otherActiveLeaves.length === 0) {
+        await supabase
+          .from('users')
+          .update({ status: 'Working' })
+          .eq('id', lReq.user_id);
+      }
+    }
+
+    return { 
+      message: previousStatus === 'Approved' 
+        ? 'Leave request cancelled and quota successfully restored.' 
+        : 'Leave request cancelled successfully.',
+      previousStatus 
+    };
+  },
+
   async updateUserStatus(userId, status) {
     if (!userId || !status) throw new Error('user_id and status are required');
 
@@ -1027,5 +1100,9 @@ export const adminService = {
       .eq('status', 'On Leave');
 
     return { message: 'Leave request rejected successfully' };
+  },
+
+  async cancelLeave(id) {
+    return dashboardService.cancelLeave(id);
   }
 };

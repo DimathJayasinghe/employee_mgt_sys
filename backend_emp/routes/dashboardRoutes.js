@@ -453,6 +453,85 @@ router.get('/leave/history', async (req, res) => {
   }
 });
 
+// POST /api/leave/cancel
+router.post('/leave/cancel', async (req, res) => {
+  const { id, user_id } = req.body;
+  if (!id) return res.status(400).json({ error: 'id is required' });
+
+  const todayStr = getTodayStr();
+
+  try {
+    if (!getIsDbConnected()) await initDatabase();
+
+    if (getIsDbConnected()) {
+      let query = 'SELECT * FROM leave_requests WHERE id = ?';
+      let params = [id];
+      if (user_id) {
+        query += ' AND user_id = ?';
+        params.push(user_id);
+      }
+      const [leaves] = await pool.query(query, params);
+      if (leaves.length === 0) return res.status(404).json({ error: 'Leave request not found' });
+      const lReq = leaves[0];
+
+      if (lReq.status === 'Cancelled') {
+        return res.status(400).json({ error: 'Leave request is already cancelled' });
+      }
+
+      const previousStatus = lReq.status;
+      await pool.query("UPDATE leave_requests SET status = 'Cancelled' WHERE id = ?", [id]);
+
+      if (previousStatus === 'Approved') {
+        const [balances] = await pool.query('SELECT * FROM leave_balances WHERE user_id = ?', [lReq.user_id]);
+        if (balances.length > 0) {
+          const currentUsed = parseFloat(balances[0].used_days || 0);
+          const leaveDays = parseFloat(lReq.days_count || 1);
+          const newUsed = Math.max(0, currentUsed - leaveDays);
+          await pool.query('UPDATE leave_balances SET used_days = ? WHERE user_id = ?', [newUsed, lReq.user_id]);
+        }
+
+        const [otherActive] = await pool.query(
+          `SELECT id FROM leave_requests 
+           WHERE user_id = ? AND status = 'Approved' AND ? BETWEEN start_date AND end_date AND id != ?`,
+          [lReq.user_id, todayStr, id]
+        );
+        if (otherActive.length === 0) {
+          await pool.query("UPDATE users SET status = 'Working' WHERE id = ?", [lReq.user_id]);
+        }
+      }
+
+      return res.json({ 
+        message: previousStatus === 'Approved' 
+          ? 'Leave request cancelled and quota successfully restored.' 
+          : 'Leave request cancelled successfully.' 
+      });
+    } else {
+      const idx = memoryStore.leaveRequests.findIndex(l => l.id === Number(id) || l.id === id);
+      if (idx === -1) return res.status(404).json({ error: 'Leave request not found' });
+      const lReq = memoryStore.leaveRequests[idx];
+      const previousStatus = lReq.status;
+      lReq.status = 'Cancelled';
+
+      if (previousStatus === 'Approved') {
+        const leaveDays = parseFloat(lReq.days_count || 1);
+        memoryStore.leaveBalance.used_days = Math.max(0, memoryStore.leaveBalance.used_days - leaveDays);
+        if (memoryStore.user) {
+          memoryStore.user.status = 'Working';
+        }
+      }
+
+      return res.json({ 
+        message: previousStatus === 'Approved' 
+          ? 'Leave request cancelled and quota successfully restored.' 
+          : 'Leave request cancelled successfully.' 
+      });
+    }
+  } catch (err) {
+    console.error('Error cancelling leave request:', err);
+    res.status(500).json({ error: 'Failed to cancel leave request' });
+  }
+});
+
 // PATCH /api/user/status
 router.patch('/user/status', async (req, res) => {
   const { user_id, status } = req.body;

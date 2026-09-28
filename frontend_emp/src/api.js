@@ -116,6 +116,11 @@ const API = {
         return { data };
       }
 
+      if (path === '/leave/cancel') {
+        const data = await dashboardService.cancelLeave(body.id, body.user_id);
+        return { data };
+      }
+
       if (path === '/admin/leave/approve') {
         const data = await adminService.approveLeave(body.id);
         return { data };

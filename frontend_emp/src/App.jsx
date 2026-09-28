@@ -363,7 +363,11 @@ export default function App() {
           {activeTab === 'work-history' && <WorkHistoryView userId={currentUser?.id} />}
 
           {activeTab === 'leave-history' && (
-            <LeaveHistoryView userId={currentUser?.id} onOpenApplyLeave={() => setIsApplyLeaveOpen(true)} />
+            <LeaveHistoryView 
+              userId={currentUser?.id} 
+              onOpenApplyLeave={() => setIsApplyLeaveOpen(true)} 
+              onLeaveCancelled={() => fetchEmployeeSummary(currentUser?.id)}
+            />
           )}
 
           {activeTab === 'visit-form' && <VisitFormView />}

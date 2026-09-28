@@ -54,6 +54,8 @@ export default function RecentLeaveRequestsCard({ requests = [] }) {
                     ? 'bg-emerald-50 text-emerald-600 border-emerald-200/80'
                     : req.status === 'Pending'
                     ? 'bg-amber-50 text-amber-600 border-amber-200/80'
+                    : req.status === 'Cancelled'
+                    ? 'bg-slate-100 text-slate-500 border-slate-200'
                     : 'bg-rose-50 text-rose-600 border-rose-200/80'
                 }`}>
                   {req.status}
