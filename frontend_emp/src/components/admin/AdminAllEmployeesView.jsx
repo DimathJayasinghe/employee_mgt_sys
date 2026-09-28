@@ -7,6 +7,7 @@ export default function AdminAllEmployeesView() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [deptFilter, setDeptFilter] = useState('All departments');
+  const [statusFilter, setStatusFilter] = useState('All statuses');
 
   useEffect(() => {
     fetchEmployees();
@@ -26,13 +27,24 @@ export default function AdminAllEmployeesView() {
   };
 
   const departments = ['All departments', 'IT', 'Finance'];
+  const statusOptions = ['All statuses', 'Working', 'All Leave', 'On Leave', 'Half Day', 'Study Leave'];
 
   const filtered = employees.filter(emp => {
     const matchesSearch = emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           emp.department.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesDept = deptFilter === 'All departments' ||
                         emp.department.toLowerCase() === deptFilter.toLowerCase();
-    return matchesSearch && matchesDept;
+    
+    let matchesStatus = true;
+    if (statusFilter === 'All Leave') {
+      matchesStatus = emp.status && emp.status !== 'Working';
+    } else if (statusFilter === 'Working') {
+      matchesStatus = emp.status === 'Working';
+    } else if (statusFilter !== 'All statuses') {
+      matchesStatus = emp.status && emp.status.toLowerCase().includes(statusFilter.toLowerCase());
+    }
+
+    return matchesSearch && matchesDept && matchesStatus;
   });
 
   return (
@@ -43,7 +55,7 @@ export default function AdminAllEmployeesView() {
           <p className="text-xs text-slate-500 mt-0.5">Manage company employees across all departments.</p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <div className="relative">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
@@ -51,7 +63,7 @@ export default function AdminAllEmployeesView() {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Search employees..."
-              className="bg-white border border-slate-200 text-xs text-slate-700 placeholder-slate-400 rounded-xl pl-9 pr-3 py-2 w-56 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+              className="bg-white border border-slate-200 text-xs text-slate-700 placeholder-slate-400 rounded-xl pl-9 pr-3 py-2 w-48 sm:w-52 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
             />
           </div>
 
@@ -63,6 +75,19 @@ export default function AdminAllEmployeesView() {
             >
               {departments.map(d => (
                 <option key={d} value={d}>{d}</option>
+              ))}
+            </select>
+            <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+          </div>
+
+          <div className="relative">
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="appearance-none bg-white border border-slate-200 text-xs text-slate-700 rounded-xl pl-3 pr-8 py-2 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 cursor-pointer"
+            >
+              {statusOptions.map(s => (
+                <option key={s} value={s}>{s}</option>
               ))}
             </select>
             <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -85,41 +110,50 @@ export default function AdminAllEmployeesView() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-medium">
-              {filtered.map((emp) => (
-                <tr key={emp.id} className="hover:bg-slate-50/60 transition-colors">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-900 font-bold text-xs flex items-center justify-center shrink-0 border border-blue-200">
-                        {emp.initials}
-                      </div>
-                      <span className="font-bold text-slate-900 text-xs">{emp.name}</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-slate-600 font-semibold">{emp.department}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-block whitespace-nowrap px-2.5 py-1 rounded-md text-[11px] font-bold border ${
-                      emp.status === 'Working'
-                        ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
-                        : emp.status === 'On Leave'
-                        ? 'bg-rose-50 text-rose-600 border-rose-200'
-                        : emp.status === 'Half Day'
-                        ? 'bg-amber-50 text-amber-600 border-amber-200'
-                        : 'bg-sky-50 text-sky-600 border-sky-200'
-                    }`}>
-                      {emp.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-slate-600 font-normal min-w-[200px] max-w-md">
-                    {emp.today_work ? (
-                      <div className="max-h-[250px] overflow-y-auto pr-1.5 whitespace-pre-wrap leading-relaxed text-xs text-slate-700 bg-slate-50/60 p-2.5 rounded-xl border border-slate-100">
-                        {emp.today_work}
-                      </div>
-                    ) : (
-                      <span className="text-slate-400 italic text-xs">N/A</span>
-                    )}
+              {filtered.length === 0 ? (
+                <tr>
+                  <td colSpan="4" className="px-6 py-10 text-center text-slate-400">
+                    <p className="text-sm font-semibold text-slate-600">No employees found</p>
+                    <p className="text-xs text-slate-400 mt-0.5">Try adjusting your search query, department, or status filter.</p>
                   </td>
                 </tr>
-              ))}
+              ) : (
+                filtered.map((emp) => (
+                  <tr key={emp.id} className="hover:bg-slate-50/60 transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-900 font-bold text-xs flex items-center justify-center shrink-0 border border-blue-200">
+                          {emp.initials}
+                        </div>
+                        <span className="font-bold text-slate-900 text-xs">{emp.name}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-slate-600 font-semibold">{emp.department}</td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-block whitespace-nowrap px-2.5 py-1 rounded-md text-[11px] font-bold border ${
+                        emp.status === 'Working'
+                          ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
+                          : emp.status === 'On Leave'
+                          ? 'bg-rose-50 text-rose-600 border-rose-200'
+                          : emp.status === 'Half Day'
+                          ? 'bg-amber-50 text-amber-600 border-amber-200'
+                          : 'bg-sky-50 text-sky-600 border-sky-200'
+                      }`}>
+                        {emp.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-slate-600 font-normal min-w-[200px] max-w-md">
+                      {emp.today_work ? (
+                        <div className="max-h-[250px] overflow-y-auto pr-1.5 whitespace-pre-wrap leading-relaxed text-xs text-slate-700 bg-slate-50/60 p-2.5 rounded-xl border border-slate-100">
+                          {emp.today_work}
+                        </div>
+                      ) : (
+                        <span className="text-slate-400 italic text-xs">N/A</span>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
