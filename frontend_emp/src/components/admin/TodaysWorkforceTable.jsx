@@ -4,27 +4,47 @@ import { Search, ChevronDown, ArrowUpRight } from 'lucide-react';
 export default function TodaysWorkforceTable({ workforce = [] }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState('All departments');
+  const [workFilter, setWorkFilter] = useState('All Work Status');
 
   const departments = ['All departments', 'IT', 'Finance'];
+  const workFilterOptions = ['All Work Status', 'Work Submitted', 'Pending Description'];
 
   const filtered = workforce.filter(emp => {
     const matchesSearch = emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          emp.today_work.toLowerCase().includes(searchTerm.toLowerCase());
+                          (emp.today_work && emp.today_work.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesDept = departmentFilter === 'All departments' ||
                         emp.department.toLowerCase() === departmentFilter.toLowerCase();
-    return matchesSearch && matchesDept;
+    
+    let matchesWork = true;
+    if (workFilter === 'Work Submitted') {
+      matchesWork = emp.today_work && emp.today_work.trim() !== '';
+    } else if (workFilter === 'Pending Description') {
+      matchesWork = !emp.today_work || emp.today_work.trim() === '';
+    }
+
+    return matchesSearch && matchesDept && matchesWork;
   });
+
+  const filledCount = workforce.filter(e => e.today_work && e.today_work.trim() !== '').length;
+  const pendingCount = workforce.length - filledCount;
 
   return (
     <div className="bg-white rounded-2xl shadow-xs border border-slate-200/80 mb-8 overflow-hidden">
       {/* Table Header Controls */}
       <div className="p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h3 className="text-lg font-bold text-slate-900">Today's Workforce</h3>
-          <p className="text-xs text-slate-500 mt-0.5">Employees currently working today</p>
+          <div className="flex items-center gap-2.5">
+            <h3 className="text-lg font-bold text-slate-900">Today's Workforce</h3>
+            <span className="bg-blue-50 text-blue-700 border border-blue-200 text-[11px] font-bold px-2 py-0.5 rounded-full">
+              {filtered.length} Active
+            </span>
+          </div>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Employees currently on active working duty ({filledCount} submitted description, {pendingCount} pending)
+          </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2.5">
           {/* Search Box */}
           <div className="relative">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -32,8 +52,8 @@ export default function TodaysWorkforceTable({ workforce = [] }) {
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search workforce"
-              className="bg-slate-50 border border-slate-200 text-xs text-slate-700 placeholder-slate-400 rounded-xl pl-9 pr-3 py-2 w-48 sm:w-56 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+              placeholder="Search workforce..."
+              className="bg-slate-50 border border-slate-200 text-xs text-slate-700 placeholder-slate-400 rounded-xl pl-9 pr-3 py-2 w-44 sm:w-52 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
             />
           </div>
 
@@ -46,6 +66,20 @@ export default function TodaysWorkforceTable({ workforce = [] }) {
             >
               {departments.map(d => (
                 <option key={d} value={d}>{d}</option>
+              ))}
+            </select>
+            <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+          </div>
+
+          {/* Work Description Filter Dropdown */}
+          <div className="relative">
+            <select
+              value={workFilter}
+              onChange={(e) => setWorkFilter(e.target.value)}
+              className="appearance-none bg-slate-50 border border-slate-200 text-xs text-slate-700 rounded-xl pl-3 pr-8 py-2 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 cursor-pointer"
+            >
+              {workFilterOptions.map(opt => (
+                <option key={opt} value={opt}>{opt}</option>
               ))}
             </select>
             <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />

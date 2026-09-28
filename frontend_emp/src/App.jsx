@@ -73,6 +73,7 @@ export default function App() {
   const [halfDayEmployees, setHalfDayEmployees] = useState([]);
   const [studyLeaveEmployees, setStudyLeaveEmployees] = useState([]);
   const [pendingLeaveRequests, setPendingLeaveRequests] = useState([]);
+  const [allEmployees, setAllEmployees] = useState([]);
 
   // On mount: if a saved session exists, restore the correct view
   useEffect(() => {
@@ -109,6 +110,7 @@ export default function App() {
         if (res.data.halfDayEmployees) setHalfDayEmployees(res.data.halfDayEmployees);
         if (res.data.studyLeaveEmployees) setStudyLeaveEmployees(res.data.studyLeaveEmployees);
         if (res.data.pendingLeaveRequests) setPendingLeaveRequests(res.data.pendingLeaveRequests);
+        if (res.data.allEmployees) setAllEmployees(res.data.allEmployees);
       }
     } catch (err) {
       console.error('Failed to load admin summary:', err);
@@ -276,7 +278,16 @@ export default function App() {
                   </p>
                 </div>
 
-                <StatCardsGrid stats={adminStats} />
+                <StatCardsGrid 
+                  stats={adminStats} 
+                  workingWorkforce={workingWorkforce}
+                  todaysLeave={todaysLeave}
+                  halfDayEmployees={halfDayEmployees}
+                  studyLeaveEmployees={studyLeaveEmployees}
+                  pendingLeaveRequests={pendingLeaveRequests}
+                  allEmployees={allEmployees}
+                  onNavigateTab={setActiveTab}
+                />
                 <TodaysWorkforceTable workforce={workingWorkforce} />
                 <TodaysLeaveCards leaves={todaysLeave} />
                 <HalfDayAndStudyLeave

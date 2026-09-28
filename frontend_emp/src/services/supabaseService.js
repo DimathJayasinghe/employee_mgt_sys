@@ -127,6 +127,73 @@ function getShortLeaveDetails(activeLeave) {
   };
 }
 
+// Helper to determine whether a leave request is within the allowed cancellation window
+export function getLeaveCancellationStatus(leave) {
+  if (!leave) return { canCancel: false, isExpired: false, reason: 'Invalid leave request' };
+  
+  if (leave.status !== 'Pending' && leave.status !== 'Approved') {
+    return { canCancel: false, isExpired: false, reason: `Leave is already ${leave.status}` };
+  }
+
+  // Special Leave and Power Cut can be cancelled anytime (no mandatory deadline)
+  const isSpecial = leave.leave_type === 'Special Leave';
+  const isPowerCut = leave.leave_type === 'Power Cut';
+  if (isSpecial || isPowerCut) {
+    return { canCancel: true, isExpired: false, deadlineText: 'Anytime' };
+  }
+
+  const startDateStr = leave.start_date ? leave.start_date.split('T')[0] : '';
+  if (!startDateStr) {
+    return { canCancel: true, isExpired: false, deadlineText: 'Standard' };
+  }
+
+  let cutoffTimeStr = '08:30:00';
+  let deadlineDesc = '8:30 AM on start date';
+
+  if (leave.leave_type === 'Short Leave') {
+    let sTime = leave.start_time || '09:00:00';
+    if (!leave.start_time && leave.reason) {
+      const match = leave.reason.match(/(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})/);
+      if (match) sTime = match[1] + ':00';
+    }
+    cutoffTimeStr = sTime.length === 5 ? sTime + ':00' : sTime;
+    deadlineDesc = `${sTime.slice(0, 5)} (start of Short Leave)`;
+  } else if (leave.leave_type === 'Half Day') {
+    const text = `${leave.special_session || ''} ${leave.reason || ''} ${leave.start_time || ''}`.toLowerCase();
+    const isEvening = text.includes('evening') || text.includes('pm') || text.includes('12:30') || text.includes('afternoon');
+    if (isEvening) {
+      cutoffTimeStr = '12:30:00';
+      deadlineDesc = '12:30 PM (start of Evening Session)';
+    } else {
+      cutoffTimeStr = '08:30:00';
+      deadlineDesc = '8:30 AM (start of Morning Session)';
+    }
+  } else {
+    // Full day leaves (Casual, Medical, Study, Annual, etc.)
+    cutoffTimeStr = '08:30:00';
+    deadlineDesc = '8:30 AM on start date';
+  }
+
+  const [year, month, day] = startDateStr.split('-').map(Number);
+  const [hour, minute, second] = cutoffTimeStr.split(':').map(Number);
+  const cutoffDate = new Date(year, month - 1, day, hour, minute || 0, second || 0);
+
+  const now = new Date();
+  if (now.getTime() > cutoffDate.getTime()) {
+    return {
+      canCancel: false,
+      isExpired: true,
+      reason: `Cancellation closed (must be cancelled before ${deadlineDesc} on ${startDateStr})`
+    };
+  }
+
+  return {
+    canCancel: true,
+    isExpired: false,
+    deadlineText: `Before ${deadlineDesc} on ${startDateStr}`
+  };
+}
+
 // -------------------------------------------------------------
 // AUTH SERVICES
 // -------------------------------------------------------------
@@ -550,6 +617,12 @@ export const dashboardService = {
       throw new Error('Leave request is already cancelled');
     }
 
+    // Check cancellation deadline
+    const cancelEligibility = getLeaveCancellationStatus(lReq);
+    if (!cancelEligibility.canCancel) {
+      throw new Error(cancelEligibility.reason || 'Cannot cancel leave: The cancellation deadline has passed.');
+    }
+
     const previousStatus = lReq.status;
 
     // 2. Update status to Cancelled
@@ -854,7 +927,46 @@ export const adminService = {
       halfDayEmployees,
       studyLeaveEmployees,
       specialLeaveEmployees,
-      pendingLeaveRequests: pendingFormatted
+      pendingLeaveRequests: pendingFormatted,
+      allEmployees: (allUsers || []).map(u => {
+        const activeLeave = leaveMap[u.id];
+        const todayWork = workMap[u.id] || '';
+        let displayStatus = 'Working';
+        let hd = null;
+        let sl = null;
+        if (activeLeave) {
+          if (activeLeave.leave_type === 'Study Leave') {
+            displayStatus = todayWork.trim() !== '' ? 'Study Leave / Work Today' : 'Study Leave';
+          } else if (activeLeave.leave_type === 'Half Day') {
+            hd = getHalfDayDetails(activeLeave);
+            displayStatus = hd.half_day_leave_now ? `Half Day (${hd.half_day_session})` : 'Working';
+          } else if (activeLeave.leave_type === 'Short Leave') {
+            sl = getShortLeaveDetails(activeLeave);
+            displayStatus = sl.short_leave_now ? 'Short Leave' : 'Working';
+          } else if (activeLeave.leave_type === 'Power Cut') {
+            displayStatus = 'Power Cut';
+          } else {
+            displayStatus = `On Leave (${activeLeave.leave_type})`;
+          }
+        }
+        return {
+          id: u.id,
+          name: u.name,
+          initials: u.initials || getInitials(u.name),
+          department: u.department || 'IT',
+          status: displayStatus,
+          role: u.role || 'Employee',
+          today_work: todayWork,
+          leave_type: activeLeave ? activeLeave.leave_type : null,
+          leave_reason: activeLeave ? (activeLeave.reason || activeLeave.leave_type) : null,
+          leave_dates: activeLeave ? (activeLeave.start_date === activeLeave.end_date ? activeLeave.start_date : `${activeLeave.start_date} to ${activeLeave.end_date}`) : null,
+          is_half_day: hd ? hd.is_half_day : false,
+          half_day_session: hd ? hd.half_day_session : null,
+          half_day_leave_now: hd ? hd.half_day_leave_now : false,
+          is_short_leave: sl ? sl.is_short_leave : false,
+          short_leave_now: sl ? sl.short_leave_now : false
+        };
+      })
     };
   },
 
@@ -910,8 +1022,10 @@ export const adminService = {
         } else if (activeLeave.leave_type === 'Short Leave') {
           sl = getShortLeaveDetails(activeLeave);
           displayStatus = sl.short_leave_now ? 'Short Leave' : 'Working';
+        } else if (activeLeave.leave_type === 'Power Cut') {
+          displayStatus = 'Power Cut';
         } else {
-          displayStatus = 'On Leave';
+          displayStatus = `On Leave (${activeLeave.leave_type})`;
         }
 
         const isActivelyOnLeave = activeLeave.leave_type === 'Half Day' 
@@ -942,6 +1056,10 @@ export const adminService = {
         role: u.role || 'Employee',
         today_work: todayWork,
         updated_ago: 'Today',
+        leave_type: activeLeave ? activeLeave.leave_type : null,
+        leave_reason: activeLeave ? (activeLeave.reason || activeLeave.leave_type) : null,
+        leave_dates: activeLeave ? (activeLeave.start_date === activeLeave.end_date ? activeLeave.start_date : `${activeLeave.start_date} to ${activeLeave.end_date}`) : null,
+        active_leave: activeLeave || null,
         is_half_day: hd ? hd.is_half_day : false,
         half_day_session: hd ? hd.half_day_session : null,
         half_day_leave_now: hd ? hd.half_day_leave_now : false,

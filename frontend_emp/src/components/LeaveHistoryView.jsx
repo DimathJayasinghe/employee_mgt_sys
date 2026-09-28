@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import API from '../api';
-import { ClipboardList, Plus, Ban, AlertTriangle, CheckCircle2, X } from 'lucide-react';
+import { ClipboardList, Plus, Ban, AlertTriangle, CheckCircle2, X, Clock } from 'lucide-react';
+import { getLeaveCancellationStatus } from '../services/supabaseService';
 
 export default function LeaveHistoryView({ userId, onOpenApplyLeave, onLeaveCancelled }) {
   const [leaves, setLeaves] = useState([]);
@@ -118,7 +119,7 @@ export default function LeaveHistoryView({ userId, onOpenApplyLeave, onLeaveCanc
                   ? `${sDate} (${leave.start_time.slice(0,5)} - ${leave.end_time.slice(0,5)})`
                   : (sDate === eDate ? sDate : `${sDate} to ${eDate}`);
 
-                const canCancel = leave.status === 'Pending' || leave.status === 'Approved';
+                const cancelStatus = getLeaveCancellationStatus(leave);
 
                 return (
                   <tr key={leave.id || Math.random()} className="hover:bg-slate-50/60 transition-colors">
@@ -156,15 +157,25 @@ export default function LeaveHistoryView({ userId, onOpenApplyLeave, onLeaveCanc
                       </span>
                     </td>
                     <td className="px-6 py-4 text-center">
-                      {canCancel ? (
-                        <button
-                          onClick={() => setCancelTarget(leave)}
-                          className="bg-rose-50 hover:bg-rose-100 text-rose-700 hover:text-rose-800 border border-rose-200 rounded-lg px-2.5 py-1 text-[11px] font-bold transition-all inline-flex items-center gap-1 cursor-pointer shadow-2xs"
-                          title="Cancel this leave request"
-                        >
-                          <Ban className="w-3 h-3" />
-                          <span>Cancel</span>
-                        </button>
+                      {cancelStatus.canCancel ? (
+                        <div className="inline-flex flex-col items-center">
+                          <button
+                            onClick={() => setCancelTarget(leave)}
+                            className="bg-rose-50 hover:bg-rose-100 text-rose-700 hover:text-rose-800 border border-rose-200 rounded-lg px-2.5 py-1 text-[11px] font-bold transition-all inline-flex items-center gap-1 cursor-pointer shadow-2xs"
+                            title={`Cancel this leave request (Allowed ${cancelStatus.deadlineText})`}
+                          >
+                            <Ban className="w-3 h-3" />
+                            <span>Cancel</span>
+                          </button>
+                        </div>
+                      ) : cancelStatus.isExpired ? (
+                        <div className="inline-flex flex-col items-center group relative" title={cancelStatus.reason}>
+                          <span className="bg-slate-100 text-slate-400 border border-slate-200 rounded-lg px-2 py-0.5 text-[10px] font-bold inline-flex items-center gap-1 cursor-not-allowed">
+                            <Clock className="w-3 h-3 text-slate-400" />
+                            <span>Passed</span>
+                          </span>
+                          <span className="text-[9px] text-slate-400 mt-0.5 font-medium">After start time</span>
+                        </div>
                       ) : (
                         <span className="text-slate-300 font-bold">—</span>
                       )}
