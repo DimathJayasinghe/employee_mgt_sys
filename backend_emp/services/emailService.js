@@ -19,7 +19,11 @@ async function sendEmail({ to, subject, text, html }) {
     body: JSON.stringify({ from, to: [to], subject, text, html })
   });
   if (!response.ok) {
-    const error = new Error(`Email provider rejected the message: ${await response.text()}`);
+    const details = await response.text();
+    const message = details.includes('domain is not verified')
+      ? 'The EMAIL_FROM domain is not verified in Resend. Verify the sender domain at https://resend.com/domains, then update EMAIL_FROM.'
+      : `Email provider rejected the message: ${details}`;
+    const error = new Error(message);
     error.status = 502;
     throw error;
   }

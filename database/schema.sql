@@ -95,7 +95,8 @@ begin
   where id in (
     select id
     from public.email_events
-    where status in ('pending', 'failed')
+    where (status in ('pending', 'failed')
+      or (status = 'processing' and locked_at < now() - interval '10 minutes'))
       and next_attempt_at <= now()
       and attempts < 5
     order by created_at
@@ -140,6 +141,13 @@ begin
   update public.leave_requests
   set status = p_status
   where id = p_leave_id;
+
+  if p_status = 'Approved' then
+    insert into public.leave_balances (user_id, total_days, used_days)
+    values (leave_row.user_id, 24, leave_row.days_count)
+    on conflict (user_id) do update
+      set used_days = public.leave_balances.used_days + excluded.used_days;
+  end if;
 
   insert into public.email_events (recipient, event_type, payload)
   values (

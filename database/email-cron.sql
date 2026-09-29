@@ -8,6 +8,10 @@
 create extension if not exists pg_cron with schema pg_catalog;
 create extension if not exists pg_net with schema extensions;
 
+select cron.unschedule(jobid)
+from cron.job
+where jobname = 'process-email-outbox';
+
 select cron.schedule(
   'process-email-outbox',
   '* * * * *',

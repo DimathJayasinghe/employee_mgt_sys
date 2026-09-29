@@ -152,7 +152,12 @@ router.post('/auth/send-otp', async (req, res, next) => {
       last_sent_at: new Date().toISOString()
     });
     if (otpError) throw otpError;
-    await sendEmail({ to: email, ...otpEmail({ code: otp, type }) });
+    try {
+      await sendEmail({ to: email, ...otpEmail({ code: otp, type }) });
+    } catch (error) {
+      await db.from('auth_otps').delete().eq('email', email).eq('type', type);
+      throw error;
+    }
     const response = { message: `Verification code sent to ${email}` };
     if (process.env.NODE_ENV !== 'production' && process.env.ALLOW_DEBUG_OTP === 'true') response.debugOtp = otp;
     res.json(response);
