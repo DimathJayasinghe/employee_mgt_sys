@@ -1,11 +1,5 @@
 const jwt = require('jsonwebtoken');
-
-const ADMIN_EMAILS = new Set([
-  'hashan@pwholdings.lk',
-  'nishani@pwholdings.lk',
-  'channa@pwholdings.lk',
-  'pasindu.buddhima@pwholdings.lk'
-]);
+const db = require('../db');
 
 function getJwtSecret() {
   if (!process.env.JWT_SECRET) {
@@ -36,11 +30,17 @@ function requireAuth(req, res, next) {
   }
 }
 
-function requireAdmin(req, res, next) {
-  if (req.auth?.role !== 'Admin' || !ADMIN_EMAILS.has(String(req.auth.email).toLowerCase())) {
+async function requireAdmin(req, res, next) {
+  try {
+    const { data: user, error } = await db.from('users').select('email, role').eq('id', req.auth?.sub).maybeSingle();
+    if (error) throw error;
+    if (!user || user.role !== 'Admin') {
+      return res.status(403).json({ error: 'Administrator access required' });
+    }
+    next();
+  } catch {
     return res.status(403).json({ error: 'Administrator access required' });
   }
-  next();
 }
 
-module.exports = { ADMIN_EMAILS, signUser, requireAuth, requireAdmin };
+module.exports = { signUser, requireAuth, requireAdmin };

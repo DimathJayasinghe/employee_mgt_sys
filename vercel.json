@@ -3,10 +3,6 @@
   "outputDirectory": "frontend_emp/dist",
   "rewrites": [
     {
-      "source": "/api/:path*",
-      "destination": "/api"
-    },
-    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

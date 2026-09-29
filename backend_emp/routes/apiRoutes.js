@@ -3,12 +3,14 @@ const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const nodemailer = require('nodemailer');
 const db = require('../db');
-const { ADMIN_EMAILS, signUser, requireAuth, requireAdmin } = require('../middleware/auth');
+const { signUser, requireAuth, requireAdmin } = require('../middleware/auth');
 
 const router = express.Router();
-const otpStore = new Map();
-const otpCooldown = new Map();
 const OTP_TTL_MS = 10 * 60 * 1000;
+const MIN_PASSWORD_LENGTH = 8;
+const loginFailures = new Map();
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const MAX_LOGIN_FAILURES = 5;
 
 function today() {
   return new Date().toISOString().slice(0, 10);
@@ -35,8 +37,40 @@ function requireString(value, field) {
   return value.trim();
 }
 
+function requirePassword(value, field = 'Password') {
+  const password = requireString(value, field);
+  if (password.length < MIN_PASSWORD_LENGTH || password.length > 128) {
+    const error = new Error(`${field} must be between ${MIN_PASSWORD_LENGTH} and 128 characters`);
+    error.status = 400;
+    throw error;
+  }
+  return password;
+}
+
 function getUserId(req) {
   return Number(req.auth.sub);
+}
+
+function loginKey(req, email) {
+  return `${req.ip}:${email}`;
+}
+
+function isLoginBlocked(key) {
+  const record = loginFailures.get(key);
+  if (!record || record.expiresAt <= Date.now()) {
+    loginFailures.delete(key);
+    return false;
+  }
+  return record.count >= MAX_LOGIN_FAILURES;
+}
+
+function recordLoginFailure(key) {
+  const current = loginFailures.get(key);
+  if (!current || current.expiresAt <= Date.now()) {
+    loginFailures.set(key, { count: 1, expiresAt: Date.now() + LOGIN_WINDOW_MS });
+    return;
+  }
+  current.count += 1;
 }
 
 async function getUser(id) {
@@ -77,18 +111,20 @@ router.post('/auth/login', async (req, res, next) => {
   try {
     const email = requireString(req.body.email, 'Email').toLowerCase();
     const password = requireString(req.body.password, 'Password');
+    const attemptKey = loginKey(req, email);
+    if (isLoginBlocked(attemptKey)) return res.status(429).json({ error: 'Too many failed login attempts. Please try again later.' });
     const { data: user, error } = await db.from('users').select('*').ilike('email', email).maybeSingle();
     if (error) throw error;
     if (!user || !(await bcrypt.compare(password, user.password)).valueOf()) {
-      if (!user || user.password !== password) return res.status(401).json({ error: 'Invalid email address or password' });
+      if (!user || user.password !== password) {
+        recordLoginFailure(attemptKey);
+        return res.status(401).json({ error: 'Invalid email address or password' });
+      }
       const hashed = await bcrypt.hash(password, 12);
       await db.from('users').update({ password: hashed }).eq('id', user.id);
       user.password = hashed;
     }
-    if (ADMIN_EMAILS.has(email) && user.role !== 'Admin') {
-      user.role = 'Admin';
-      await db.from('users').update({ role: 'Admin' }).eq('id', user.id);
-    }
+    loginFailures.delete(attemptKey);
     res.json({ message: 'Login successful', token: signUser(user), user: publicUser(user) });
   } catch (error) { next(error); }
 });
@@ -97,15 +133,24 @@ router.post('/auth/send-otp', async (req, res, next) => {
   try {
     const email = requireString(req.body.email, 'Email').toLowerCase();
     const type = req.body.type === 'reset-password' ? 'reset-password' : 'register';
-    const lastSentAt = otpCooldown.get(email) || 0;
-    if (Date.now() - lastSentAt < 60 * 1000) return res.status(429).json({ error: 'Please wait before requesting another verification code' });
+    const { data: previousOtp, error: previousOtpError } = await db.from('auth_otps').select('last_sent_at').eq('email', email).eq('type', type).maybeSingle();
+    if (previousOtpError) throw previousOtpError;
+    if (previousOtp && Date.now() - new Date(previousOtp.last_sent_at).getTime() < 60 * 1000) {
+      return res.status(429).json({ error: 'Please wait before requesting another verification code' });
+    }
     const { data: existing, error } = await db.from('users').select('id').ilike('email', email).maybeSingle();
     if (error) throw error;
     if (type === 'register' && existing) return res.status(409).json({ error: 'An account with this email already exists' });
     if (type === 'reset-password' && !existing) return res.status(404).json({ error: 'No account found with this email address' });
     const otp = String(crypto.randomInt(100000, 1000000));
-    otpStore.set(email, { hash: await bcrypt.hash(otp, 10), type, expiresAt: Date.now() + OTP_TTL_MS });
-    otpCooldown.set(email, Date.now());
+    const { error: otpError } = await db.from('auth_otps').upsert({
+      email,
+      type,
+      code_hash: await bcrypt.hash(otp, 10),
+      expires_at: new Date(Date.now() + OTP_TTL_MS).toISOString(),
+      last_sent_at: new Date().toISOString()
+    });
+    if (otpError) throw otpError;
     if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
       const transporter = nodemailer.createTransport({
         host: process.env.EMAIL_HOST || 'smtp.gmail.com',
@@ -123,30 +168,31 @@ router.post('/auth/send-otp', async (req, res, next) => {
       console.log(`[OTP generated for ${email}] Configure SMTP to deliver it securely.`);
     }
     const response = { message: `Verification code sent to ${email}` };
-    if (process.env.NODE_ENV !== 'production') response.debugOtp = otp;
+    if (process.env.NODE_ENV !== 'production' && process.env.ALLOW_DEBUG_OTP === 'true') response.debugOtp = otp;
     res.json(response);
   } catch (error) { next(error); }
 });
 
 async function verifyOtp(email, otp, type) {
-  const record = otpStore.get(email);
-  if (!record || record.type !== type || record.expiresAt < Date.now() || !(await bcrypt.compare(String(otp), record.hash))) {
+  const { data: record, error: fetchError } = await db.from('auth_otps').select('code_hash, expires_at').eq('email', email).eq('type', type).maybeSingle();
+  if (fetchError) throw fetchError;
+  if (!record || new Date(record.expires_at).getTime() < Date.now() || !(await bcrypt.compare(String(otp), record.code_hash))) {
     const error = new Error('Invalid or expired verification code');
     error.status = 400;
     throw error;
   }
-  otpStore.delete(email);
+  const { error: deleteError } = await db.from('auth_otps').delete().eq('email', email).eq('type', type);
+  if (deleteError) throw deleteError;
 }
 
 router.post('/auth/verify-otp-register', async (req, res, next) => {
   try {
     const name = requireString(req.body.name, 'Name');
     const email = requireString(req.body.email, 'Email').toLowerCase();
-    const password = requireString(req.body.password, 'Password');
+    const password = requirePassword(req.body.password);
     await verifyOtp(email, req.body.otp, 'register');
     const hashed = await bcrypt.hash(password, 12);
-    const role = ADMIN_EMAILS.has(email) ? 'Admin' : 'Employee';
-    const { data: user, error } = await db.from('users').insert({ name, department: req.body.department || 'IT', email, password: hashed, initials: initials(name), status: 'Working', role }).select().single();
+    const { data: user, error } = await db.from('users').insert({ name, department: req.body.department || 'IT', email, password: hashed, initials: initials(name), status: 'Working', role: 'Employee' }).select().single();
     if (error) throw error;
     await db.from('leave_balances').insert({ user_id: user.id, total_days: 24, used_days: 0 });
     res.json({ message: 'Account created successfully', token: signUser(user), user: publicUser(user) });
@@ -156,7 +202,7 @@ router.post('/auth/verify-otp-register', async (req, res, next) => {
 router.post('/auth/verify-otp-reset-password', async (req, res, next) => {
   try {
     const email = requireString(req.body.email, 'Email').toLowerCase();
-    const password = requireString(req.body.newPassword, 'New password');
+    const password = requirePassword(req.body.newPassword, 'New password');
     await verifyOtp(email, req.body.otp, 'reset-password');
     const hashed = await bcrypt.hash(password, 12);
     const { error } = await db.from('users').update({ password: hashed }).ilike('email', email);
