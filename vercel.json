@@ -19,7 +19,12 @@
       "dest": "backend_emp/index.js"
     },
     {
-      "handle": "filesystem"
+      "src": "/assets/(.*)",
+      "dest": "frontend_emp/assets/$1"
+    },
+    {
+      "src": "/(.*\\.(?:js|css|png|jpg|jpeg|gif|svg|ico|webp|woff|woff2|ttf|eot|json|map))",
+      "dest": "frontend_emp/$1"
     },
     {
       "src": "/(.*)",
