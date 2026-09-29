@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import logoImg from '../assets/logo.png';
 import API from '../api';
 import { 
   Users, 
@@ -219,7 +220,7 @@ export default function LoginPage({ onLoginSuccess }) {
       <div className="lg:w-[42%] bg-[#022851] text-white p-8 sm:p-12 lg:p-16 flex flex-col justify-between min-h-[380px] lg:min-h-screen relative overflow-hidden shrink-0">
         <div className="flex items-center gap-3 z-10">
           <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center p-1.5 shadow-md shrink-0">
-            <img src="/logo.png" alt="P W Holdings Logo" className="w-full h-full object-contain" />
+            <img src={logoImg} alt="P W Holdings Logo" className="w-full h-full object-contain" onError={(e) => { e.currentTarget.src = '/logo.png'; }} />
           </div>
           <div>
             <h1 className="text-white font-bold text-xl leading-tight tracking-tight">P W Holdings</h1>

@@ -19,8 +19,7 @@
       "dest": "backend_emp/index.js"
     },
     {
-      "src": "/assets/(.*)",
-      "dest": "frontend_emp/assets/$1"
+      "handle": "filesystem"
     },
     {
       "src": "/(.*)",
