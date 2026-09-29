@@ -3,7 +3,10 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "build": "cd frontend_emp && npm install && npm run build"
+    "dev": "npm run build && npm run dev --prefix backend_emp",
+    "start": "npm run build && npm run start --prefix backend_emp",
+    "build": "npm install --prefix frontend_emp && npm run build --prefix frontend_emp",
+    "install:all": "npm install && npm install --prefix backend_emp && npm install --prefix frontend_emp"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
@@ -11,7 +14,6 @@
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
-    "mysql2": "^3.24.4",
-    "nodemailer": "^10.0.10"
+    "@supabase/supabase-js": "^2.117.1"
   }
 }

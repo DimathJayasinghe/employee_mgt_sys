@@ -1,10 +1,13 @@
-const { createClient } = require('@supabase/supabase-js');
 const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '.env') });
+const { createClient } = require('@supabase/supabase-js');
 
-const supabaseUrl = process.env.SUPABASE_URL || 'https://mbblahvstusfzlbzztrp.supabase.co';
-const supabaseKey = process.env.SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1iYmxhaHZzdHVzZnpsYnp6dHJwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDE0NzQwOCwiZXhwIjoyMTA1NzIzNDA4fQ.jAFcONpAoiHHtvxDlSusBXCfL_DZIbCo6e-oYMWeU8w';
+const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } = process.env;
 
-const supabase = createClient(supabaseUrl, supabaseKey);
+if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+  throw new Error('Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
+}
 
-module.exports = supabase;
+module.exports = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+  auth: { persistSession: false, autoRefreshToken: false },
+});

@@ -162,6 +162,7 @@ export default function App() {
   const handleLogout = () => {
     setCurrentUser(null);
     localStorage.removeItem('emp_mgt_user');
+    localStorage.removeItem('emp_mgt_token');
     setCurrentView('login');
   };
 
