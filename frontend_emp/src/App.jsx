@@ -72,6 +72,7 @@ export default function App() {
   const [todaysLeave, setTodaysLeave] = useState([]);
   const [halfDayEmployees, setHalfDayEmployees] = useState([]);
   const [studyLeaveEmployees, setStudyLeaveEmployees] = useState([]);
+  const [specialLeaveEmployees, setSpecialLeaveEmployees] = useState([]);
   const [pendingLeaveRequests, setPendingLeaveRequests] = useState([]);
   const [allEmployees, setAllEmployees] = useState([]);
 
@@ -109,6 +110,7 @@ export default function App() {
         if (res.data.todaysLeave) setTodaysLeave(res.data.todaysLeave);
         if (res.data.halfDayEmployees) setHalfDayEmployees(res.data.halfDayEmployees);
         if (res.data.studyLeaveEmployees) setStudyLeaveEmployees(res.data.studyLeaveEmployees);
+        if (res.data.specialLeaveEmployees) setSpecialLeaveEmployees(res.data.specialLeaveEmployees);
         if (res.data.pendingLeaveRequests) setPendingLeaveRequests(res.data.pendingLeaveRequests);
         if (res.data.allEmployees) setAllEmployees(res.data.allEmployees);
       }
@@ -284,6 +286,7 @@ export default function App() {
                   todaysLeave={todaysLeave}
                   halfDayEmployees={halfDayEmployees}
                   studyLeaveEmployees={studyLeaveEmployees}
+                  specialLeaveEmployees={specialLeaveEmployees}
                   pendingLeaveRequests={pendingLeaveRequests}
                   allEmployees={allEmployees}
                   onNavigateTab={setActiveTab}

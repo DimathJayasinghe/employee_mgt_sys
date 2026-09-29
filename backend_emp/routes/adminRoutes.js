@@ -195,23 +195,39 @@ router.get('/summary', async (req, res) => {
     };
 
     // Stats
-    const total_employees  = rows.length;
-    const working_today    = rows.filter(e => e.status === 'Working' || (e.today_work && e.today_work.trim() !== '')).length;
-    const on_leave_today   = rows.filter(e => e.status === 'On Leave' && (!e.leave_type || e.leave_type !== 'Study Leave')).length;
-    const half_day         = rows.filter(e => e.leave_type === 'Half Day' || e.status === 'Half Day').length;
-    const study_leave      = rows.filter(e => e.leave_type === 'Study Leave' || e.status === 'Study Leave').length;
-    const special_leave    = rows.filter(e => e.leave_type === 'Special Leave').length;
-    const pending_requests = pendingReqs.length;
+    const total_employees   = rows.length;
+    const working_today     = rows.filter(e => e.status === 'Working' || (e.today_work && e.today_work.trim() !== '')).length;
+    const on_leave_today    = rows.filter(e => e.status === 'On Leave' || e.leave_type).length;
+    const half_day          = rows.filter(e => e.leave_type === 'Half Day' || e.status === 'Half Day').length;
+    const study_leave       = rows.filter(e => e.leave_type === 'Study Leave' || e.status === 'Study Leave').length;
+    const special_leave     = rows.filter(e => e.leave_type === 'Special Leave').length;
+    const casual_leave      = rows.filter(e => e.leave_type === 'Casual Leave').length;
+    const medical_leave     = rows.filter(e => e.leave_type === 'Medical Leave').length;
+    const short_leave       = rows.filter(e => e.leave_type === 'Short Leave').length;
+    const power_cut_leave   = rows.filter(e => e.leave_type === 'Power Cut').length;
+    const pending_requests  = pendingReqs.length;
 
     // Partition into status groups
-    const workingWorkforce    = rows.filter(e => e.status === 'Working' || (e.today_work && e.today_work.trim() !== '')).map(formatEmp);
-    const todaysLeave         = rows.filter(e => e.status === 'On Leave' && (!e.leave_type || e.leave_type !== 'Study Leave')).map(formatEmpWithLeave);
-    const halfDayEmployees    = rows.filter(e => e.leave_type === 'Half Day' || e.status === 'Half Day').map(formatEmpWithLeave);
-    const studyLeaveEmployees = rows.filter(e => e.leave_type === 'Study Leave' || e.status === 'Study Leave').map(formatEmpWithLeave);
+    const workingWorkforce      = rows.filter(e => e.status === 'Working' || (e.today_work && e.today_work.trim() !== '')).map(formatEmp);
+    const todaysLeave           = rows.filter(e => e.status === 'On Leave' && (!e.leave_type || (e.leave_type !== 'Study Leave' && e.leave_type !== 'Half Day'))).map(formatEmpWithLeave);
+    const halfDayEmployees      = rows.filter(e => e.leave_type === 'Half Day' || e.status === 'Half Day').map(formatEmpWithLeave);
+    const studyLeaveEmployees   = rows.filter(e => e.leave_type === 'Study Leave' || e.status === 'Study Leave').map(formatEmpWithLeave);
     const specialLeaveEmployees = rows.filter(e => e.leave_type === 'Special Leave').map(formatEmpWithLeave);
 
     res.json({
-      stats: { total_employees, working_today, on_leave_today, half_day, study_leave, special_leave, pending_requests },
+      stats: { 
+        total_employees, 
+        working_today, 
+        on_leave_today, 
+        half_day, 
+        study_leave, 
+        special_leave, 
+        casual_leave, 
+        medical_leave, 
+        short_leave, 
+        power_cut_leave, 
+        pending_requests 
+      },
       workingWorkforce,
       todaysLeave,
       halfDayEmployees,

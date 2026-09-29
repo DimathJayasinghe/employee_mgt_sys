@@ -91,6 +91,10 @@ function getShortLeaveDetails(activeLeave) {
     start_time: startTime,
     end_time: endTime,
     time_range: timeRange,
+    duration_hours: durationHours
+  };
+}
+
 // Helper to determine whether a leave request is within the allowed cancellation window
 function getLeaveCancellationStatus(leave) {
   if (!leave) return { canCancel: false, isExpired: false, reason: 'Invalid leave request' };
