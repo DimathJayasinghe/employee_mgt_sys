@@ -1,8 +1,8 @@
 const express = require('express');
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
-const nodemailer = require('nodemailer');
 const db = require('../db');
+const { sendEmail } = require('../services/emailService');
 const { signUser, requireAuth, requireAdmin } = require('../middleware/auth');
 
 const router = express.Router();
@@ -151,22 +151,11 @@ router.post('/auth/send-otp', async (req, res, next) => {
       last_sent_at: new Date().toISOString()
     });
     if (otpError) throw otpError;
-    if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
-      const transporter = nodemailer.createTransport({
-        host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-        port: Number(process.env.EMAIL_PORT) || 587,
-        secure: Number(process.env.EMAIL_PORT) === 465,
-        auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
-      });
-      await transporter.sendMail({
-        from: process.env.EMAIL_USER,
-        to: email,
-        subject: type === 'register' ? 'Employee Portal verification code' : 'Employee Portal password reset code',
-        text: `Your verification code is ${otp}. It expires in 10 minutes.`
-      });
-    } else {
-      console.log(`[OTP generated for ${email}] Configure SMTP to deliver it securely.`);
-    }
+    await sendEmail({
+      to: email,
+      subject: type === 'register' ? 'Employee Portal verification code' : 'Employee Portal password reset code',
+      text: `Your verification code is ${otp}. It expires in 10 minutes.`
+    });
     const response = { message: `Verification code sent to ${email}` };
     if (process.env.NODE_ENV !== 'production' && process.env.ALLOW_DEBUG_OTP === 'true') response.debugOtp = otp;
     res.json(response);
@@ -311,11 +300,21 @@ router.get('/admin/leave-calendar', async (req, res, next) => {
 });
 
 router.post('/admin/leave/approve', async (req, res, next) => {
-  try { const { data: leave, error: fetchError } = await db.from('leave_requests').select('*').eq('id', req.body.id).maybeSingle(); if (fetchError) throw fetchError; if (!leave) return res.status(404).json({ error: 'Leave request not found' }); const { error } = await db.from('leave_requests').update({ status: 'Approved' }).eq('id', leave.id); if (error) throw error; res.json({ message: 'Leave request approved successfully' }); } catch (error) { next(error); }
+  try {
+    const { data, error } = await db.rpc('record_leave_decision', { p_leave_id: req.body.id, p_status: 'Approved' });
+    if (error) throw error;
+    if (!data) return res.status(404).json({ error: 'Pending leave request not found' });
+    res.json({ message: 'Leave request approved successfully' });
+  } catch (error) { next(error); }
 });
 
 router.post('/admin/leave/reject', async (req, res, next) => {
-  try { const { error } = await db.from('leave_requests').update({ status: 'Rejected' }).eq('id', req.body.id); if (error) throw error; res.json({ message: 'Leave request rejected successfully' }); } catch (error) { next(error); }
+  try {
+    const { data, error } = await db.rpc('record_leave_decision', { p_leave_id: req.body.id, p_status: 'Rejected' });
+    if (error) throw error;
+    if (!data) return res.status(404).json({ error: 'Pending leave request not found' });
+    res.json({ message: 'Leave request rejected successfully' });
+  } catch (error) { next(error); }
 });
 
 router.use((error, req, res, next) => { console.error(error); res.status(error.status || 500).json({ error: error.status ? error.message : 'Internal server error' }); });
