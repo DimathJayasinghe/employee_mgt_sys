@@ -23,6 +23,15 @@ function assertConfig() {
   }
 }
 
+function escapeHtml(value: unknown) {
+  return String(value)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
 function messageFor(event: EmailEvent) {
   const name = String(event.payload.employeeName || 'Employee');
   const leaveType = String(event.payload.leaveType || 'leave');
@@ -32,10 +41,26 @@ function messageFor(event: EmailEvent) {
   const approved = event.event_type === 'leave_approved';
   const status = approved ? 'approved' : 'rejected';
   const text = `Hello ${name}, your ${leaveType} request for ${range} was ${status}.`;
+  const html = `<!doctype html>
+<html lang="en"><body style="margin:0;background:#f1f5f9;font-family:Arial,sans-serif;color:#1e293b">
+  <main style="max-width:560px;margin:32px auto;padding:0 16px">
+    <section style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden">
+      <header style="background:#022851;padding:24px 28px;color:#ffffff">
+        <div style="font-size:12px;letter-spacing:1px;text-transform:uppercase;opacity:.8">P W Holdings</div>
+        <h1 style="margin:8px 0 0;font-size:24px">${escapeHtml(approved ? 'Leave request approved' : 'Leave request rejected')}</h1>
+      </header>
+      <div style="padding:28px"><p>Hello ${escapeHtml(name)},</p><p>Your leave request has been <strong>${status}</strong>.</p>
+        <p><strong>Leave type:</strong> ${escapeHtml(leaveType)}<br><strong>Dates:</strong> ${escapeHtml(range)}</p>
+        <p style="margin-top:28px;color:#64748b;font-size:13px">Employee Management Portal</p>
+      </div>
+    </section>
+    <p style="text-align:center;color:#64748b;font-size:12px">This is an automated message. Please do not reply.</p>
+  </main>
+</body></html>`;
   return {
     subject: approved ? 'Leave request approved' : 'Leave request rejected',
     text,
-    html: `<p>${text}</p>`
+    html
   };
 }
 

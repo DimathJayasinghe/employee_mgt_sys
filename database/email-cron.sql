@@ -3,6 +3,11 @@
 -- select vault.create_secret('replace-with-a-random-secret', 'cron_secret');
 -- Never commit real secret values to this file.
 
+-- Enable these extensions first. If your project disallows this statement,
+-- enable pg_cron and pg_net from Supabase Dashboard > Database > Extensions.
+create extension if not exists pg_cron with schema pg_catalog;
+create extension if not exists pg_net with schema extensions;
+
 select cron.schedule(
   'process-email-outbox',
   '* * * * *',

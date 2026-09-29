@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const db = require('../db');
 const { sendEmail } = require('../services/emailService');
+const { otpEmail } = require('../services/emailTemplates');
 const { signUser, requireAuth, requireAdmin } = require('../middleware/auth');
 
 const router = express.Router();
@@ -151,11 +152,7 @@ router.post('/auth/send-otp', async (req, res, next) => {
       last_sent_at: new Date().toISOString()
     });
     if (otpError) throw otpError;
-    await sendEmail({
-      to: email,
-      subject: type === 'register' ? 'Employee Portal verification code' : 'Employee Portal password reset code',
-      text: `Your verification code is ${otp}. It expires in 10 minutes.`
-    });
+    await sendEmail({ to: email, ...otpEmail({ code: otp, type }) });
     const response = { message: `Verification code sent to ${email}` };
     if (process.env.NODE_ENV !== 'production' && process.env.ALLOW_DEBUG_OTP === 'true') response.debugOtp = otp;
     res.json(response);
