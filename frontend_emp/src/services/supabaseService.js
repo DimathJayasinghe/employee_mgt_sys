@@ -455,7 +455,7 @@ export const dashboardService = {
 
     const todayEntry = entries && entries.length > 0 ? entries[0].work_description : '';
 
-    // 3. Fetch Leave Balances
+    // 3. Fetch Leave Balances & Calculate Accurate Used Days from Approved Requests
     const { data: balances } = await supabase
       .from('leave_balances')
       .select('total_days, used_days')
@@ -466,8 +466,19 @@ export const dashboardService = {
       : { total_days: 24, used_days: 0 };
 
     const totalDays = parseFloat(balance.total_days || 24);
-    const usedDays = parseFloat(balance.used_days || 0);
+
+    const { data: allApprovedUserLeaves } = await supabase
+      .from('leave_requests')
+      .select('days_count')
+      .eq('user_id', userId)
+      .eq('status', 'Approved');
+
+    const usedDays = (allApprovedUserLeaves || []).reduce((sum, l) => sum + parseFloat(l.days_count || 0), 0);
     const available_days = Math.max(0, totalDays - usedDays);
+
+    if (parseFloat(balance.used_days || 0) !== usedDays) {
+      supabase.from('leave_balances').update({ used_days: usedDays }).eq('user_id', userId).then(() => {});
+    }
 
     // 4. Fetch Active Approved Leave for Today
     const { data: activeLeavesToday } = await supabase

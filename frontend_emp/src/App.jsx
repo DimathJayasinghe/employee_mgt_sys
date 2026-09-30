@@ -9,6 +9,8 @@ import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import GreetingBanner from './components/GreetingBanner';
 import DailyWorkCard from './components/DailyWorkCard';
+import LeaveBalanceCard from './components/LeaveBalanceCard';
+import TeamDutyStatusCard from './components/TeamDutyStatusCard';
 import RecentLeaveRequestsCard from './components/RecentLeaveRequestsCard';
 import ApplyLeaveModal from './components/ApplyLeaveModal';
 import WorkHistoryView from './components/WorkHistoryView';
@@ -139,6 +141,8 @@ export default function App() {
         if (res.data.todayWork !== undefined) setTodayWork(res.data.todayWork);
         if (res.data.leaveBalance) setLeaveBalance(res.data.leaveBalance);
         if (res.data.recentLeaveRequests) setRecentLeaveRequests(res.data.recentLeaveRequests);
+        if (res.data.workingWorkforce) setWorkingWorkforce(res.data.workingWorkforce);
+        if (res.data.todaysLeave) setTodaysLeave(res.data.todaysLeave);
       }
     } catch (err) {
       console.error('Failed to load employee summary:', err);
@@ -367,8 +371,16 @@ export default function App() {
               <div className="lg:col-span-8 space-y-6">
                 <GreetingBanner user={user} onUpdateStatus={handleUpdateStatus} />
                 <DailyWorkCard initialWork={todayWork} onSaveWork={handleSaveWork} />
+                <TeamDutyStatusCard 
+                  workingWorkforce={workingWorkforce}
+                  todaysLeave={todaysLeave}
+                />
               </div>
               <div className="lg:col-span-4 space-y-6">
+                <LeaveBalanceCard 
+                  leaveBalance={leaveBalance} 
+                  onOpenApplyLeave={() => setIsApplyLeaveOpen(true)} 
+                />
                 <RecentLeaveRequestsCard requests={recentLeaveRequests} />
               </div>
             </div>

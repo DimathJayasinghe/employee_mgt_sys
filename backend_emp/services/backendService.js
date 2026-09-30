@@ -512,7 +512,7 @@ const dashboardService = {
 
     const todayEntry = entries && entries.length > 0 ? entries[0].work_description : '';
 
-    // 3. Fetch Leave Balances
+    // 3. Fetch Leave Balances & Calculate Accurate Used Days from Approved Requests
     const { data: balances } = await supabase
       .from('leave_balances')
       .select('total_days, used_days')
@@ -523,8 +523,20 @@ const dashboardService = {
       : { total_days: 24, used_days: 0 };
 
     const totalDays = parseFloat(balance.total_days || 24);
-    const usedDays = parseFloat(balance.used_days || 0);
+
+    const { data: allApprovedUserLeaves } = await supabase
+      .from('leave_requests')
+      .select('days_count')
+      .eq('user_id', userId)
+      .eq('status', 'Approved');
+
+    const usedDays = (allApprovedUserLeaves || []).reduce((sum, l) => sum + parseFloat(l.days_count || 0), 0);
     const availableDays = Math.max(0, totalDays - usedDays);
+
+    // Auto-heal leave_balances table if desynchronized
+    if (parseFloat(balance.used_days || 0) !== usedDays) {
+      supabase.from('leave_balances').update({ used_days: usedDays }).eq('user_id', userId).then(() => {});
+    }
 
     // 4. Fetch Active Approved Leave Today
     const { data: activeLeavesToday } = await supabase
@@ -599,6 +611,118 @@ const dashboardService = {
       };
     });
 
+    // 6. Fetch Team Workforce Status Today (Working & On Leave)
+    const { data: allUsers } = await supabase
+      .from('users')
+      .select('id, name, initials, department, status, role')
+      .order('name', { ascending: true });
+
+    const { data: todayWorks } = await supabase
+      .from('daily_work_entries')
+      .select('user_id, work_description')
+      .eq('entry_date', todayStr);
+
+    const workMap = {};
+    (todayWorks || []).forEach(w => {
+      workMap[w.user_id] = w.work_description;
+    });
+
+    const { data: activeLeaves } = await supabase
+      .from('leave_requests')
+      .select('*')
+      .eq('status', 'Approved')
+      .lte('start_date', todayStr)
+      .gte('end_date', todayStr);
+
+    const leaveMap = {};
+    (activeLeaves || []).forEach(l => {
+      leaveMap[l.user_id] = l;
+    });
+
+    const workingWorkforce = [];
+    const todaysLeave = [];
+
+    (allUsers || []).forEach(u => {
+      const activeLeave = leaveMap[u.id];
+      const todayWorkDesc = workMap[u.id] || '';
+      let displayStatus = 'Working';
+      let hd = null;
+      let sl = null;
+
+      if (activeLeave) {
+        if (activeLeave.leave_type === 'Study Leave') {
+          displayStatus = todayWorkDesc.trim() !== '' ? 'Study Leave / Work Today' : 'Study Leave';
+        } else if (activeLeave.leave_type === 'Half Day') {
+          hd = getHalfDayDetails(activeLeave);
+          displayStatus = hd.half_day_leave_now ? `Half Day (${hd.half_day_session})` : 'Working';
+        } else if (activeLeave.leave_type === 'Short Leave') {
+          sl = getShortLeaveDetails(activeLeave);
+          displayStatus = sl.short_leave_now ? 'Short Leave' : 'Working';
+        } else if (activeLeave.leave_type === 'Power Cut') {
+          displayStatus = 'Power Cut';
+        } else {
+          displayStatus = `On Leave (${activeLeave.leave_type})`;
+        }
+      } else if (u.status && u.status !== 'On Leave') {
+        displayStatus = u.status;
+      }
+
+      const formattedEmp = {
+        id: u.id,
+        name: u.name,
+        initials: u.initials || getInitials(u.name),
+        department: u.department || 'General',
+        status: displayStatus,
+        today_work: todayWorkDesc,
+        leave_type: activeLeave ? activeLeave.leave_type : null,
+        leave_reason: activeLeave ? (activeLeave.reason || activeLeave.leave_type) : null,
+        is_half_day: hd ? hd.is_half_day : false,
+        half_day_session: hd ? hd.half_day_session : null,
+        half_day_leave_now: hd ? hd.half_day_leave_now : false,
+        half_day_time: hd ? hd.leave_time : null,
+        is_short_leave: sl ? sl.is_short_leave : false,
+        short_leave_now: sl ? sl.short_leave_now : false,
+        short_leave_time: sl ? sl.time_range : null,
+        short_leave_duration: sl ? sl.duration_hours : null
+      };
+
+      if (activeLeave) {
+        if (activeLeave.leave_type === 'Half Day') {
+          const hdInfo = hd || getHalfDayDetails(activeLeave);
+          if (hdInfo.half_day_leave_now) {
+            todaysLeave.push({
+              ...formattedEmp,
+              leave_type: `Half Day (${hdInfo.half_day_session})`,
+              duration: hdInfo.leave_time,
+              leave_reason: activeLeave.reason || 'Half Day'
+            });
+          } else {
+            workingWorkforce.push(formattedEmp);
+          }
+        } else if (activeLeave.leave_type === 'Short Leave') {
+          const slInfo = sl || getShortLeaveDetails(activeLeave);
+          if (slInfo.short_leave_now) {
+            todaysLeave.push({
+              ...formattedEmp,
+              leave_type: 'Short Leave',
+              duration: `${slInfo.time_range} (${slInfo.duration_hours} hrs)`,
+              leave_reason: activeLeave.reason || 'Short Leave'
+            });
+          } else {
+            workingWorkforce.push(formattedEmp);
+          }
+        } else {
+          todaysLeave.push({
+            ...formattedEmp,
+            leave_type: activeLeave.leave_type,
+            leave_reason: activeLeave.reason || activeLeave.leave_type
+          });
+        }
+      } else {
+        workingWorkforce.push(formattedEmp);
+      }
+    });
+
     return {
       user: {
         id: user.id,
@@ -624,7 +748,14 @@ const dashboardService = {
         used_days: usedDays,
         available_days: availableDays
       },
-      recentLeaveRequests: formattedRecentLeaves
+      recentLeaveRequests: formattedRecentLeaves,
+      workingWorkforce,
+      todaysLeave,
+      teamStats: {
+        total: (allUsers || []).length,
+        working: workingWorkforce.length,
+        onLeave: todaysLeave.length
+      }
     };
   },
 
