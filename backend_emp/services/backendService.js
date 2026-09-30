@@ -228,13 +228,13 @@ function getLeaveCancellationStatus(leave) {
 // Unified Email Dispatcher supporting Resend API & SMTP
 async function sendSystemEmail({ to, cc, subject, html }) {
   const resendApiKey = process.env.RESEND_API_KEY || (process.env.EMAIL_PASS?.startsWith('re_') ? process.env.EMAIL_PASS : null);
-  const fromEmail = process.env.EMAIL_FROM || process.env.EMAIL_USER || 'onboarding@resend.dev';
+  const fromEmail = process.env.EMAIL_FROM || 'P W Holdings System <hr@mail.pwholdings.lk>';
 
   // 1. Resend Direct HTTPS API (Fastest & recommended for serverless)
   if (resendApiKey) {
     try {
       const payload = {
-        from: fromEmail.includes('<') ? fromEmail : `P W Holdings <${fromEmail}>`,
+        from: fromEmail.includes('<') ? fromEmail : `P W Holdings System <${fromEmail}>`,
         to: Array.isArray(to) ? to : [to],
         subject: subject,
         html: html
