@@ -51,7 +51,13 @@ export default function App() {
     status: 'Working'
   });
   const [todayWork, setTodayWork] = useState('');
-  const [leaveBalance, setLeaveBalance] = useState({ total_days: 24, used_days: 0, available_days: 24 });
+  const [leaveBalance, setLeaveBalance] = useState({
+    total_days: 21,
+    used_days: 0,
+    available_days: 21,
+    casual: { total_days: 7, used_days: 0, available_days: 7 },
+    annual: { total_days: 14, used_days: 0, available_days: 14 }
+  });
   const [recentLeaveRequests, setRecentLeaveRequests] = useState([]);
   const [isApplyLeaveOpen, setIsApplyLeaveOpen] = useState(false);
 

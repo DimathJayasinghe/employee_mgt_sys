@@ -340,6 +340,21 @@ Submitted via P W Holdings Employee Management System`;
               <option value="Special Leave">Special Leave (Weekly Recurring)</option>
               <option value="Power Cut">⚡ Power Cut (Emergency Leave)</option>
             </select>
+            <div className="mt-1.5 flex items-center gap-1.5 text-[11px] font-semibold">
+              {leaveType === 'Casual Leave' ? (
+                <span className="text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-md">
+                  🌿 Deducts from Casual Leave quota (7 Days)
+                </span>
+              ) : leaveType === 'Study Leave' ? (
+                <span className="text-purple-700 bg-purple-50 border border-purple-200/80 px-2 py-0.5 rounded-md">
+                  📚 Study Leave (Standard Academic Leave)
+                </span>
+              ) : (
+                <span className="text-blue-700 bg-blue-50 border border-blue-200/80 px-2 py-0.5 rounded-md">
+                  🏖️ Deducts from Annual Leave quota (14 Days)
+                </span>
+              )}
+            </div>
           </div>
 
           {/* Short Leave Section */}

@@ -512,30 +512,44 @@ const dashboardService = {
 
     const todayEntry = entries && entries.length > 0 ? entries[0].work_description : '';
 
-    // 3. Fetch Leave Balances & Calculate Accurate Used Days from Approved Requests
+    // 3. Fetch Leave Balances & Calculate Accurate Used Days for Casual (7) and Annual (14)
+    const { data: allApprovedUserLeaves } = await supabase
+      .from('leave_requests')
+      .select('leave_type, days_count')
+      .eq('user_id', userId)
+      .eq('status', 'Approved');
+
+    const approvedList = allApprovedUserLeaves || [];
+    
+    // Casual Leave: 7 days allocated
+    const casualTotal = 7;
+    const casualUsed = approvedList
+      .filter(l => l.leave_type && (l.leave_type === 'Casual Leave' || l.leave_type.toLowerCase().includes('casual')))
+      .reduce((sum, l) => sum + parseFloat(l.days_count || 0), 0);
+    const casualAvailable = Math.max(0, casualTotal - casualUsed);
+
+    // Annual Leave: 14 days allocated (Medical Leave, Half Day, Short Leave, Power Cut, Special Leave)
+    const annualKeywords = ['medical', 'half day', 'short leave', 'power cut', 'special'];
+    const annualTotal = 14;
+    const annualUsed = approvedList
+      .filter(l => l.leave_type && annualKeywords.some(kw => l.leave_type.toLowerCase().includes(kw)))
+      .reduce((sum, l) => sum + parseFloat(l.days_count || 0), 0);
+    const annualAvailable = Math.max(0, annualTotal - annualUsed);
+
+    const totalDays = casualTotal + annualTotal; // 21
+    const totalUsed = casualUsed + annualUsed;
+    const totalAvailable = casualAvailable + annualAvailable;
+
+    // Auto-heal leave_balances table if desynchronized
     const { data: balances } = await supabase
       .from('leave_balances')
       .select('total_days, used_days')
       .eq('user_id', userId);
 
-    const balance = (balances && balances.length > 0) 
-      ? balances[0] 
-      : { total_days: 24, used_days: 0 };
-
-    const totalDays = parseFloat(balance.total_days || 24);
-
-    const { data: allApprovedUserLeaves } = await supabase
-      .from('leave_requests')
-      .select('days_count')
-      .eq('user_id', userId)
-      .eq('status', 'Approved');
-
-    const usedDays = (allApprovedUserLeaves || []).reduce((sum, l) => sum + parseFloat(l.days_count || 0), 0);
-    const availableDays = Math.max(0, totalDays - usedDays);
-
-    // Auto-heal leave_balances table if desynchronized
-    if (parseFloat(balance.used_days || 0) !== usedDays) {
-      supabase.from('leave_balances').update({ used_days: usedDays }).eq('user_id', userId).then(() => {});
+    if (!balances || balances.length === 0) {
+      supabase.from('leave_balances').insert([{ user_id: userId, total_days: totalDays, used_days: totalUsed }]).then(() => {});
+    } else if (parseFloat(balances[0].used_days || 0) !== totalUsed || parseFloat(balances[0].total_days || 0) !== totalDays) {
+      supabase.from('leave_balances').update({ total_days: totalDays, used_days: totalUsed }).eq('user_id', userId).then(() => {});
     }
 
     // 4. Fetch Active Approved Leave Today
@@ -745,8 +759,19 @@ const dashboardService = {
       todayWork: todayEntry,
       leaveBalance: {
         total_days: totalDays,
-        used_days: usedDays,
-        available_days: availableDays
+        used_days: totalUsed,
+        available_days: totalAvailable,
+        casual: {
+          total_days: casualTotal,
+          used_days: casualUsed,
+          available_days: casualAvailable
+        },
+        annual: {
+          total_days: annualTotal,
+          used_days: annualUsed,
+          available_days: annualAvailable,
+          included_types: ['Medical Leave', 'Half Day', 'Short Leave', 'Power Cut', 'Special Leave']
+        }
       },
       recentLeaveRequests: formattedRecentLeaves,
       workingWorkforce,
