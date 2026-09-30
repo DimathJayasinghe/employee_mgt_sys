@@ -1354,18 +1354,150 @@ const adminService = {
       }
     }
 
+    // Trigger async email notification to employee
+    (async () => {
+      try {
+        const { data: u } = await supabase
+          .from('users')
+          .select('name, email, department')
+          .eq('id', lReq.user_id)
+          .single();
+
+        if (u?.email) {
+          const dateDisplay = sDate === eDate ? sDate : `${sDate} to ${eDate}`;
+          const durationDisplay = lReq.leave_type === 'Special Leave' && lReq.day_of_week
+            ? formatSpecialDays(lReq.day_of_week)
+            : (lReq.leave_type === 'Short Leave' && lReq.start_time && lReq.end_time)
+              ? `${formatTime12(lReq.start_time)} - ${formatTime12(lReq.end_time)} (${lReq.days_count || 0.36} days)`
+              : `${lReq.days_count || 1} ${parseFloat(lReq.days_count) === 1 ? 'day' : 'days'}`;
+
+          const htmlContent = `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;">
+              <div style="background-color: #022851; padding: 18px 20px; border-radius: 8px; color: #ffffff; text-align: center; margin-bottom: 20px;">
+                <h2 style="margin: 0; font-size: 20px;">Leave Request Approved ✅</h2>
+                <p style="margin: 4px 0 0 0; font-size: 12px; opacity: 0.85;">P W Holdings - Employee Management System</p>
+              </div>
+              <p style="font-size: 14px; color: #1e293b; line-height: 1.5;">Dear <strong>${u.name || 'Employee'}</strong>,</p>
+              <p style="font-size: 14px; color: #334155; line-height: 1.5;">
+                We are pleased to inform you that your leave request has been <strong style="color: #059669;">Approved</strong> by Administration.
+              </p>
+              <table style="width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 13px; border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden;">
+                <tr style="background-color: #f8fafc;"><td style="padding: 10px; font-weight: bold; width: 35%; border-bottom: 1px solid #e2e8f0;">Leave Type:</td><td style="padding: 10px; color: #2563eb; font-weight: bold; border-bottom: 1px solid #e2e8f0;">${lReq.leave_type}</td></tr>
+                <tr><td style="padding: 10px; font-weight: bold; border-bottom: 1px solid #e2e8f0;">Dates / Time:</td><td style="padding: 10px; font-weight: bold; color: #0f172a; border-bottom: 1px solid #e2e8f0;">${dateDisplay}</td></tr>
+                <tr style="background-color: #f8fafc;"><td style="padding: 10px; font-weight: bold; border-bottom: 1px solid #e2e8f0;">Duration:</td><td style="padding: 10px; border-bottom: 1px solid #e2e8f0;">${durationDisplay}</td></tr>
+                <tr><td style="padding: 10px; font-weight: bold; border-bottom: 1px solid #e2e8f0;">Reason:</td><td style="padding: 10px; border-bottom: 1px solid #e2e8f0;">${lReq.reason || 'None provided'}</td></tr>
+                <tr style="background-color: #ecfdf5;"><td style="padding: 10px; font-weight: bold; color: #065f46;">Decision Status:</td><td style="padding: 10px; color: #059669; font-weight: bold;">Approved</td></tr>
+              </table>
+              <p style="font-size: 12px; color: #64748b; margin-top: 20px; text-align: center;">
+                This is an automated notification from P W Holdings HR System.
+              </p>
+            </div>
+          `;
+
+          await sendSystemEmail({
+            to: u.email,
+            subject: `Leave Request Approved: ${lReq.leave_type} (${dateDisplay})`,
+            html: htmlContent
+          });
+        }
+      } catch (e) {
+        console.warn('Approve leave email dispatch warning:', e.message);
+      }
+    })();
+
     return { message: 'Leave approved successfully' };
   },
 
   async rejectLeave(id) {
     if (!id) throw new Error('id is required');
 
-    const { error } = await supabase
+    const { data: leaves, error: fErr } = await supabase
+      .from('leave_requests')
+      .select('*')
+      .eq('id', id);
+
+    if (fErr || !leaves || leaves.length === 0) throw new Error('Leave request not found');
+    const lReq = leaves[0];
+
+    const previousStatus = lReq.status;
+
+    const { error: uErr } = await supabase
       .from('leave_requests')
       .update({ status: 'Rejected' })
       .eq('id', id);
 
-    if (error) throw new Error(error.message);
+    if (uErr) throw new Error(uErr.message);
+
+    // If it was previously approved, restore balance
+    if (previousStatus === 'Approved') {
+      const { data: balances } = await supabase
+        .from('leave_balances')
+        .select('*')
+        .eq('user_id', lReq.user_id);
+
+      if (balances && balances.length > 0) {
+        const currentUsed = parseFloat(balances[0].used_days || 0);
+        const leaveDays = parseFloat(lReq.days_count || 1);
+        await supabase
+          .from('leave_balances')
+          .update({ used_days: Math.max(0, currentUsed - leaveDays) })
+          .eq('user_id', lReq.user_id);
+      }
+    }
+
+    // Trigger async email notification to employee
+    (async () => {
+      try {
+        const { data: u } = await supabase
+          .from('users')
+          .select('name, email, department')
+          .eq('id', lReq.user_id)
+          .single();
+
+        if (u?.email) {
+          const sDate = lReq.start_date ? lReq.start_date.split('T')[0] : '';
+          const eDate = lReq.end_date ? lReq.end_date.split('T')[0] : '';
+          const dateDisplay = sDate === eDate ? sDate : `${sDate} to ${eDate}`;
+          const durationDisplay = lReq.leave_type === 'Special Leave' && lReq.day_of_week
+            ? formatSpecialDays(lReq.day_of_week)
+            : (lReq.leave_type === 'Short Leave' && lReq.start_time && lReq.end_time)
+              ? `${formatTime12(lReq.start_time)} - ${formatTime12(lReq.end_time)} (${lReq.days_count || 0.36} days)`
+              : `${lReq.days_count || 1} ${parseFloat(lReq.days_count) === 1 ? 'day' : 'days'}`;
+
+          const htmlContent = `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;">
+              <div style="background-color: #022851; padding: 18px 20px; border-radius: 8px; color: #ffffff; text-align: center; margin-bottom: 20px;">
+                <h2 style="margin: 0; font-size: 20px;">Leave Request Update</h2>
+                <p style="margin: 4px 0 0 0; font-size: 12px; opacity: 0.85;">P W Holdings - Employee Management System</p>
+              </div>
+              <p style="font-size: 14px; color: #1e293b; line-height: 1.5;">Dear <strong>${u.name || 'Employee'}</strong>,</p>
+              <p style="font-size: 14px; color: #334155; line-height: 1.5;">
+                We would like to inform you that your leave request has been <strong style="color: #dc2626;">Rejected</strong> by Administration.
+              </p>
+              <table style="width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 13px; border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden;">
+                <tr style="background-color: #f8fafc;"><td style="padding: 10px; font-weight: bold; width: 35%; border-bottom: 1px solid #e2e8f0;">Leave Type:</td><td style="padding: 10px; color: #2563eb; font-weight: bold; border-bottom: 1px solid #e2e8f0;">${lReq.leave_type}</td></tr>
+                <tr><td style="padding: 10px; font-weight: bold; border-bottom: 1px solid #e2e8f0;">Dates / Time:</td><td style="padding: 10px; font-weight: bold; color: #0f172a; border-bottom: 1px solid #e2e8f0;">${dateDisplay}</td></tr>
+                <tr style="background-color: #f8fafc;"><td style="padding: 10px; font-weight: bold; border-bottom: 1px solid #e2e8f0;">Duration:</td><td style="padding: 10px; border-bottom: 1px solid #e2e8f0;">${durationDisplay}</td></tr>
+                <tr><td style="padding: 10px; font-weight: bold; border-bottom: 1px solid #e2e8f0;">Reason:</td><td style="padding: 10px; border-bottom: 1px solid #e2e8f0;">${lReq.reason || 'None provided'}</td></tr>
+                <tr style="background-color: #fef2f2;"><td style="padding: 10px; font-weight: bold; color: #991b1b;">Decision Status:</td><td style="padding: 10px; color: #dc2626; font-weight: bold;">Rejected</td></tr>
+              </table>
+              <p style="font-size: 12px; color: #64748b; margin-top: 20px; text-align: center;">
+                If you have questions regarding this decision, please contact HR / Admin.
+              </p>
+            </div>
+          `;
+
+          await sendSystemEmail({
+            to: u.email,
+            subject: `Leave Request Rejected: ${lReq.leave_type} (${dateDisplay})`,
+            html: htmlContent
+          });
+        }
+      } catch (e) {
+        console.warn('Reject leave email dispatch warning:', e.message);
+      }
+    })();
+
     return { message: 'Leave rejected successfully' };
   }
 };
