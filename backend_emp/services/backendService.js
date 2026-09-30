@@ -13,13 +13,45 @@ const ADMIN_EMAILS = [
 // In-memory OTP storage: { [email]: { otp, expiresAt, type } }
 const otpStore = {};
 
-// Helper: Format YYYY-MM-DD
+const TIMEZONE = process.env.TIMEZONE || 'Asia/Colombo';
+
+// Helper: Get current date and time components in Sri Lanka (Asia/Colombo) timezone
+function getNowColombo() {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23'
+  }).formatToParts(new Date());
+
+  const map = {};
+  parts.forEach(p => { map[p.type] = p.value; });
+  const year = parseInt(map.year, 10);
+  const month = parseInt(map.month, 10);
+  const day = parseInt(map.day, 10);
+  const hour = parseInt(map.hour, 10);
+  const minute = parseInt(map.minute, 10);
+  const second = parseInt(map.second, 10);
+
+  return {
+    year,
+    month,
+    day,
+    dateStr: `${map.year}-${map.month}-${map.day}`,
+    hour,
+    minute,
+    second,
+    totalMinutes: hour * 60 + minute
+  };
+}
+
+// Helper: Format YYYY-MM-DD in Asia/Colombo timezone
 function getTodayStr() {
-  const d = new Date();
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  return getNowColombo().dateStr;
 }
 
 // Helper: Generate initials
@@ -71,8 +103,8 @@ function getHalfDayDetails(activeLeave) {
     session = 'Morning';
   }
 
-  const now = new Date();
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const nowInfo = getNowColombo();
+  const currentMinutes = nowInfo.totalMinutes;
   const cutoffMinutes = 12 * 60 + 30; // 12:30 PM
   const isMorningNow = currentMinutes < cutoffMinutes;
 
@@ -104,8 +136,8 @@ function getShortLeaveDetails(activeLeave) {
     }
   }
 
-  const now = new Date();
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const nowInfo = getNowColombo();
+  const currentMinutes = nowInfo.totalMinutes;
 
   const [sH, sM] = startTime.split(':').map(Number);
   const [eH, eM] = endTime.split(':').map(Number);
@@ -174,10 +206,11 @@ function getLeaveCancellationStatus(leave) {
 
   const [year, month, day] = startDateStr.split('-').map(Number);
   const [hour, minute, second] = cutoffTimeStr.split(':').map(Number);
-  const cutoffDate = new Date(year, month - 1, day, hour, minute || 0, second || 0);
+  // Asia/Colombo is UTC+05:30 -> subtract 5h 30m to get UTC timestamp
+  const cutoffUtcMs = Date.UTC(year, month - 1, day, hour - 5, (minute || 0) - 30, second || 0);
 
-  const now = new Date();
-  if (now.getTime() > cutoffDate.getTime()) {
+  const nowMs = Date.now();
+  if (nowMs > cutoffUtcMs) {
     return {
       canCancel: false,
       isExpired: true,
@@ -847,9 +880,13 @@ const adminService = {
 
     let workingCount = 0;
     let onLeaveCount = 0;
+    let casualCount = 0;
+    let medicalCount = 0;
     let halfDayCount = 0;
+    let shortLeaveCount = 0;
     let studyLeaveCount = 0;
     let specialLeaveCount = 0;
+    let powerCutCount = 0;
 
     const workingWorkforce = [];
     const todaysLeave = [];
@@ -948,6 +985,7 @@ const adminService = {
         } else if (leaveType === 'Short Leave') {
           const slInfo = sl || getShortLeaveDetails(activeLeave);
           if (slInfo.short_leave_now) {
+            shortLeaveCount++;
             onLeaveCount++;
             todaysLeave.push({
               ...formattedEmp,
@@ -974,6 +1012,30 @@ const adminService = {
             ...formattedEmp,
             days: formatSpecialDays(activeLeave.day_of_week),
             reason: activeLeave.reason || 'Special Leave'
+          });
+        } else if (leaveType === 'Casual Leave') {
+          casualCount++;
+          onLeaveCount++;
+          todaysLeave.push({
+            ...formattedEmp,
+            leave_type: 'Casual Leave',
+            leave_reason: activeLeave.reason || 'Casual Leave'
+          });
+        } else if (leaveType === 'Medical Leave') {
+          medicalCount++;
+          onLeaveCount++;
+          todaysLeave.push({
+            ...formattedEmp,
+            leave_type: 'Medical Leave',
+            leave_reason: activeLeave.reason || 'Medical Leave'
+          });
+        } else if (leaveType === 'Power Cut') {
+          powerCutCount++;
+          onLeaveCount++;
+          todaysLeave.push({
+            ...formattedEmp,
+            leave_type: 'Power Cut',
+            leave_reason: activeLeave.reason || 'Power Cut'
           });
         } else {
           onLeaveCount++;
@@ -1025,9 +1087,13 @@ const adminService = {
         total_employees: (allUsers || []).length,
         working_today: workingCount,
         on_leave_today: onLeaveCount,
+        casual_leave: casualCount,
+        medical_leave: medicalCount,
         half_day: halfDayCount,
+        short_leave: shortLeaveCount,
         study_leave: studyLeaveCount,
         special_leave: specialLeaveCount,
+        power_cut_leave: powerCutCount,
         pending_requests: pendingFormatted.length
       },
       workingWorkforce,

@@ -67,10 +67,11 @@ export function getLeaveCancellationStatus(leave) {
 
   const [year, month, day] = startDateStr.split('-').map(Number);
   const [hour, minute, second] = cutoffTimeStr.split(':').map(Number);
-  const cutoffDate = new Date(year, month - 1, day, hour, minute || 0, second || 0);
+  // Asia/Colombo is UTC+05:30 -> subtract 5h 30m to get UTC timestamp
+  const cutoffUtcMs = Date.UTC(year, month - 1, day, hour - 5, (minute || 0) - 30, second || 0);
 
-  const now = new Date();
-  if (now.getTime() > cutoffDate.getTime()) {
+  const nowMs = Date.now();
+  if (nowMs > cutoffUtcMs) {
     return {
       canCancel: false,
       isExpired: true,

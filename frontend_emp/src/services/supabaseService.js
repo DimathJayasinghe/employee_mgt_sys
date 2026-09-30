@@ -10,12 +10,43 @@ const ADMIN_EMAILS = [
 // In-memory OTP storage for registration and password resets
 const otpStore = {};
 
+const TIMEZONE = 'Asia/Colombo';
+
+function getNowColombo() {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23'
+  }).formatToParts(new Date());
+
+  const map = {};
+  parts.forEach(p => { map[p.type] = p.value; });
+  const year = parseInt(map.year, 10);
+  const month = parseInt(map.month, 10);
+  const day = parseInt(map.day, 10);
+  const hour = parseInt(map.hour, 10);
+  const minute = parseInt(map.minute, 10);
+  const second = parseInt(map.second, 10);
+
+  return {
+    year,
+    month,
+    day,
+    dateStr: `${map.year}-${map.month}-${map.day}`,
+    hour,
+    minute,
+    second,
+    totalMinutes: hour * 60 + minute
+  };
+}
+
 function getTodayStr() {
-  const d = new Date();
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  return getNowColombo().dateStr;
 }
 
 function getInitials(name) {
@@ -54,8 +85,8 @@ function getHalfDayDetails(activeLeave) {
     session = 'Morning';
   }
 
-  const now = new Date();
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const nowInfo = getNowColombo();
+  const currentMinutes = nowInfo.totalMinutes;
   const cutoffMinutes = 12 * 60 + 30; // 12:30 PM
   const isMorningNow = currentMinutes < cutoffMinutes;
 
@@ -101,8 +132,8 @@ function getShortLeaveDetails(activeLeave) {
     }
   }
 
-  const now = new Date();
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const nowInfo = getNowColombo();
+  const currentMinutes = nowInfo.totalMinutes;
 
   const [sH, sM] = startTime.split(':').map(Number);
   const [eH, eM] = endTime.split(':').map(Number);
@@ -176,10 +207,11 @@ export function getLeaveCancellationStatus(leave) {
 
   const [year, month, day] = startDateStr.split('-').map(Number);
   const [hour, minute, second] = cutoffTimeStr.split(':').map(Number);
-  const cutoffDate = new Date(year, month - 1, day, hour, minute || 0, second || 0);
+  // Asia/Colombo is UTC+05:30 -> subtract 5h 30m to get UTC timestamp
+  const cutoffUtcMs = Date.UTC(year, month - 1, day, hour - 5, (minute || 0) - 30, second || 0);
 
-  const now = new Date();
-  if (now.getTime() > cutoffDate.getTime()) {
+  const nowMs = Date.now();
+  if (nowMs > cutoffUtcMs) {
     return {
       canCancel: false,
       isExpired: true,
