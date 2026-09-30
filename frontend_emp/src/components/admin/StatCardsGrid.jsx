@@ -6,6 +6,7 @@ import {
   Clock, 
   GraduationCap, 
   CalendarCheck,
+  CalendarDays,
   X,
   Search,
   ArrowRight,
@@ -26,6 +27,7 @@ export default function StatCardsGrid({
   studyLeaveEmployees = [], 
   specialLeaveEmployees = [],
   pendingLeaveRequests = [],
+  upcomingLeaves = [],
   allEmployees = [],
   onNavigateTab 
 }) {
@@ -73,6 +75,16 @@ export default function StatCardsGrid({
       iconColor: 'text-orange-600',
       borderColor: 'border-orange-100',
       tagline: 'Awaiting admin review'
+    },
+    {
+      id: 'upcoming',
+      title: 'Upcoming Leaves',
+      value: stats?.upcoming_leaves ?? upcomingLeaves.length ?? 0,
+      icon: CalendarDays,
+      bgColor: 'bg-purple-50',
+      iconColor: 'text-purple-600',
+      borderColor: 'border-purple-100',
+      tagline: 'Accepted upcoming leaves'
     }
   ];
 
@@ -381,6 +393,24 @@ export default function StatCardsGrid({
           type: 'pending'
         };
       }
+      case 'upcoming': {
+        const list = upcomingLeaves.filter(e => 
+          (e.employee_name && e.employee_name.toLowerCase().includes(term)) ||
+          (e.leave_type && e.leave_type.toLowerCase().includes(term)) ||
+          (e.department && e.department.toLowerCase().includes(term)) ||
+          (e.reason && e.reason.toLowerCase().includes(term))
+        );
+        return {
+          title: 'Upcoming Approved Leaves',
+          subtitle: 'Scheduled upcoming leaves that have been accepted and approved',
+          icon: CalendarDays,
+          iconBg: 'bg-purple-50 text-purple-600 border-purple-200',
+          badgeColor: 'bg-purple-100 text-purple-800',
+          totalCount: upcomingLeaves.length,
+          items: list,
+          type: 'upcoming'
+        };
+      }
       default:
         return null;
     }
@@ -390,8 +420,8 @@ export default function StatCardsGrid({
 
   return (
     <div className="space-y-5 mb-8">
-      {/* 1. Primary Top Summary Cards (4 Cards) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* 1. Primary Top Summary Cards (5 Cards: Total, Working, On Leave, Pending, Upcoming) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3.5 sm:gap-4">
         {primaryCards.map((card) => {
           const IconComponent = card.icon;
           return (
@@ -698,6 +728,20 @@ export default function StatCardsGrid({
                             </span>
                           </div>
                         )}
+
+                        {modalConfig.type === 'upcoming' && (
+                          <div className="flex flex-col sm:items-end gap-1">
+                            <span className="bg-purple-50 text-purple-700 border border-purple-200 text-[11px] font-bold px-2.5 py-0.5 rounded-md shadow-2xs">
+                              {item.leave_type}
+                            </span>
+                            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-600">
+                              <span className="text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200 text-[10px] font-extrabold">
+                                ✓ Accepted
+                              </span>
+                              <span>📅 {item.duration || `${item.from_date} to ${item.to_date}`}</span>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
@@ -720,6 +764,18 @@ export default function StatCardsGrid({
                     className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
                   >
                     <span>Manage Leave Requests</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                )}
+                {modalConfig.type === 'upcoming' && onNavigateTab && (
+                  <button
+                    onClick={() => {
+                      handleCloseModal();
+                      onNavigateTab('calendar');
+                    }}
+                    className="bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
+                  >
+                    <span>View in Leave Calendar</span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </button>
                 )}

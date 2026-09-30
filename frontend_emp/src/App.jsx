@@ -74,7 +74,8 @@ export default function App() {
     on_leave_today: 0,
     half_day: 0,
     study_leave: 0,
-    pending_requests: 0
+    pending_requests: 0,
+    upcoming_leaves: 0
   });
   const [workingWorkforce, setWorkingWorkforce] = useState([]);
   const [todaysLeave, setTodaysLeave] = useState([]);
@@ -82,6 +83,7 @@ export default function App() {
   const [studyLeaveEmployees, setStudyLeaveEmployees] = useState([]);
   const [specialLeaveEmployees, setSpecialLeaveEmployees] = useState([]);
   const [pendingLeaveRequests, setPendingLeaveRequests] = useState([]);
+  const [upcomingLeaves, setUpcomingLeaves] = useState([]);
   const [allEmployees, setAllEmployees] = useState([]);
 
   // On mount: if a saved session exists, restore the correct view
@@ -120,6 +122,7 @@ export default function App() {
         if (res.data.studyLeaveEmployees) setStudyLeaveEmployees(res.data.studyLeaveEmployees);
         if (res.data.specialLeaveEmployees) setSpecialLeaveEmployees(res.data.specialLeaveEmployees);
         if (res.data.pendingLeaveRequests) setPendingLeaveRequests(res.data.pendingLeaveRequests);
+        if (res.data.upcomingLeaves) setUpcomingLeaves(res.data.upcomingLeaves);
         if (res.data.allEmployees) setAllEmployees(res.data.allEmployees);
       }
     } catch (err) {
@@ -298,6 +301,7 @@ export default function App() {
                   studyLeaveEmployees={studyLeaveEmployees}
                   specialLeaveEmployees={specialLeaveEmployees}
                   pendingLeaveRequests={pendingLeaveRequests}
+                  upcomingLeaves={upcomingLeaves}
                   allEmployees={allEmployees}
                   onNavigateTab={setActiveTab}
                 />
