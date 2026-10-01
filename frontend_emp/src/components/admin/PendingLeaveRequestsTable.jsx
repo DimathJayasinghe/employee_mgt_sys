@@ -66,60 +66,76 @@ export default function PendingLeaveRequestsTable({ requests = [], onApprove, on
                 </td>
               </tr>
             ) : (
-              requests.map((req) => (
-                <tr key={req.id} className="hover:bg-slate-50/60 transition-colors">
-                  <td className="px-6 py-4 font-bold text-slate-900">{req.employee_name}</td>
-                  <td className="px-6 py-4 text-slate-700 font-semibold">
-                    {req.leave_type === 'Special Leave' ? (
-                      <span className="bg-purple-50 text-purple-700 border border-purple-200/80 text-[11px] font-bold px-2.5 py-1 rounded-md inline-flex items-center gap-1">
-                        🔄 Special Leave
-                      </span>
-                    ) : req.leave_type === 'Short Leave' ? (
-                      <span className="bg-teal-50 text-teal-700 border border-teal-200 text-[11px] font-bold px-2.5 py-1 rounded-md inline-flex items-center gap-1">
-                        ⏱️ Short Leave
-                      </span>
-                    ) : req.leave_type === 'Power Cut' ? (
-                      <span className="bg-amber-50 text-amber-800 border border-amber-300 text-[11px] font-bold px-2.5 py-1 rounded-md inline-flex items-center gap-1 shadow-2xs">
-                        ⚡ Power Cut
-                      </span>
-                    ) : req.leave_type}
-                  </td>
-                  <td className="px-6 py-4 text-slate-600">{req.from_date}</td>
-                  <td className="px-6 py-4 text-slate-600">{req.to_date}</td>
-                  <td className="px-6 py-4 font-bold text-slate-800">{req.duration}</td>
-                  <td className="px-6 py-4 text-slate-600 max-w-xs truncate">{req.reason}</td>
-                  <td className="px-6 py-4 text-slate-400 text-[11px]">{req.applied_date}</td>
-                  <td className="px-6 py-4">
-                    <span className="bg-amber-50 text-amber-600 border border-amber-200/80 text-[11px] font-bold px-2.5 py-1 rounded-md">
-                      {req.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <div className="flex items-center justify-center gap-2">
-                      <button
-                        onClick={() => handleApproveClick(req.id, req.employee_name)}
-                        className="bg-[#07162c] hover:bg-[#0d274c] text-white text-xs font-bold px-3 py-1 rounded-lg transition-all shadow-2xs cursor-pointer"
-                      >
-                        Approve
-                      </button>
+              requests.map((req) => {
+                const isExceeded = req.is_exceeded_balance || (req.user_available_balance !== undefined && req.user_available_balance <= 0);
 
-                      <button
-                        onClick={() => handleRejectClick(req.id, req.employee_name)}
-                        className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold px-3 py-1 rounded-lg transition-all cursor-pointer"
-                      >
-                        Reject
-                      </button>
+                return (
+                  <tr 
+                    key={req.id} 
+                    className={`${isExceeded ? 'bg-red-50/70 hover:bg-red-100/60 border-l-4 border-l-red-500' : 'hover:bg-slate-50/60'} transition-colors`}
+                  >
+                    <td className="px-6 py-4 font-bold text-slate-900">
+                      <div>{req.employee_name}</div>
+                      {isExceeded && (
+                        <div className="mt-1">
+                          <span className="bg-red-100 text-red-800 border border-red-300 text-[10px] font-extrabold px-2 py-0.5 rounded-md inline-flex items-center gap-1 shadow-2xs animate-pulse">
+                            ⚠️ Quota Exceeded ({req.user_available_balance ?? 0} Bal)
+                          </span>
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 text-slate-700 font-semibold">
+                      {req.leave_type === 'Special Leave' ? (
+                        <span className="bg-purple-50 text-purple-700 border border-purple-200/80 text-[11px] font-bold px-2.5 py-1 rounded-md inline-flex items-center gap-1">
+                          🔄 Special Leave
+                        </span>
+                      ) : req.leave_type === 'Short Leave' ? (
+                        <span className="bg-teal-50 text-teal-700 border border-teal-200 text-[11px] font-bold px-2.5 py-1 rounded-md inline-flex items-center gap-1">
+                          ⏱️ Short Leave
+                        </span>
+                      ) : req.leave_type === 'Power Cut' ? (
+                        <span className="bg-amber-50 text-amber-800 border border-amber-300 text-[11px] font-bold px-2.5 py-1 rounded-md inline-flex items-center gap-1 shadow-2xs">
+                          ⚡ Power Cut
+                        </span>
+                      ) : req.leave_type}
+                    </td>
+                    <td className="px-6 py-4 text-slate-600">{req.from_date}</td>
+                    <td className="px-6 py-4 text-slate-600">{req.to_date}</td>
+                    <td className="px-6 py-4 font-bold text-slate-800">{req.duration}</td>
+                    <td className="px-6 py-4 text-slate-600 max-w-xs truncate">{req.reason}</td>
+                    <td className="px-6 py-4 text-slate-400 text-[11px]">{req.applied_date}</td>
+                    <td className="px-6 py-4">
+                      <span className={`text-[11px] font-bold px-2.5 py-1 rounded-md ${isExceeded ? 'bg-red-100 text-red-700 border border-red-300' : 'bg-amber-50 text-amber-600 border border-amber-200/80'}`}>
+                        {req.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          onClick={() => handleApproveClick(req.id, req.employee_name)}
+                          className="bg-[#07162c] hover:bg-[#0d274c] text-white text-xs font-bold px-3 py-1 rounded-lg transition-all shadow-2xs cursor-pointer"
+                        >
+                          Approve
+                        </button>
 
-                      <button
-                        title="View Details"
-                        className="text-slate-400 hover:text-slate-700 p-1 rounded-md transition-colors"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
+                        <button
+                          onClick={() => handleRejectClick(req.id, req.employee_name)}
+                          className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold px-3 py-1 rounded-lg transition-all cursor-pointer"
+                        >
+                          Reject
+                        </button>
+
+                        <button
+                          title="View Details"
+                          className="text-slate-400 hover:text-slate-700 p-1 rounded-md transition-colors"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>

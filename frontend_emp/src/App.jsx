@@ -415,6 +415,7 @@ export default function App() {
         onClose={() => setIsApplyLeaveOpen(false)}
         onSubmitLeave={handleSubmitLeave}
         user={user}
+        leaveBalance={leaveBalance}
       />
     </div>
   );

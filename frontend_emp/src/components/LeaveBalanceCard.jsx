@@ -4,15 +4,15 @@ import { Calendar, Plus, CheckCircle2, Info, Sparkles, Clock, Zap, HeartPulse, R
 export default function LeaveBalanceCard({ leaveBalance, onOpenApplyLeave }) {
   const totalDays = parseFloat(leaveBalance?.total_days ?? 21);
   const totalUsed = parseFloat(leaveBalance?.used_days ?? 0);
-  const totalAvailable = parseFloat(leaveBalance?.available_days ?? Math.max(0, totalDays - totalUsed));
+  const totalAvailable = parseFloat(leaveBalance?.available_days ?? (totalDays - totalUsed));
 
   const casualTotal = parseFloat(leaveBalance?.casual?.total_days ?? 7);
   const casualUsed = parseFloat(leaveBalance?.casual?.used_days ?? 0);
-  const casualAvailable = parseFloat(leaveBalance?.casual?.available_days ?? Math.max(0, casualTotal - casualUsed));
+  const casualAvailable = parseFloat(leaveBalance?.casual?.available_days ?? (casualTotal - casualUsed));
 
   const annualTotal = parseFloat(leaveBalance?.annual?.total_days ?? 14);
   const annualUsed = parseFloat(leaveBalance?.annual?.used_days ?? 0);
-  const annualAvailable = parseFloat(leaveBalance?.annual?.available_days ?? Math.max(0, annualTotal - annualUsed));
+  const annualAvailable = parseFloat(leaveBalance?.annual?.available_days ?? (annualTotal - annualUsed));
 
   const overallAvailablePct = totalDays > 0 ? Math.min(100, Math.max(0, (totalAvailable / totalDays) * 100)) : 0;
   const casualAvailablePct = casualTotal > 0 ? Math.min(100, Math.max(0, (casualAvailable / casualTotal) * 100)) : 0;
@@ -36,9 +36,9 @@ export default function LeaveBalanceCard({ leaveBalance, onOpenApplyLeave }) {
           <h3 className="text-lg font-bold text-slate-900 mt-1">Leave Balances</h3>
         </div>
 
-        <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200/90 text-emerald-800 px-3 py-1.5 rounded-xl text-xs font-bold shadow-2xs">
-          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-          <span>{totalAvailable} of 21 Days Available ({overallAvailablePct.toFixed(0)}%)</span>
+        <div className={`flex items-center gap-2 ${totalAvailable <= 0 ? 'bg-red-50 border border-red-200 text-red-800' : 'bg-emerald-50 border border-emerald-200/90 text-emerald-800'} px-3 py-1.5 rounded-xl text-xs font-bold shadow-2xs`}>
+          <CheckCircle2 className={`w-4 h-4 ${totalAvailable <= 0 ? 'text-red-600' : 'text-emerald-600'}`} />
+          <span>{totalAvailable} of 21 Days Available {totalAvailable > 0 && `(${overallAvailablePct.toFixed(0)}%)`}</span>
         </div>
       </div>
 
@@ -58,15 +58,15 @@ export default function LeaveBalanceCard({ leaveBalance, onOpenApplyLeave }) {
                   <p className="text-[11px] font-medium text-slate-400">7 Days Quota</p>
                 </div>
               </div>
-              <span className="text-xs font-extrabold px-2 py-0.5 rounded-md bg-emerald-100/80 text-emerald-800 border border-emerald-200">
-                {casualAvailablePct.toFixed(0)}% Left
+              <span className={`text-xs font-extrabold px-2 py-0.5 rounded-md ${casualAvailable < 0 ? 'bg-red-100 text-red-800 border border-red-300' : 'bg-emerald-100/80 text-emerald-800 border border-emerald-200'}`}>
+                {casualAvailable < 0 ? 'Quota Exceeded' : `${casualAvailablePct.toFixed(0)}% Left`}
               </span>
             </div>
 
             {/* Numbers */}
             <div className="flex items-baseline justify-between mt-3 mb-2">
               <div>
-                <span className="text-3xl font-extrabold text-slate-900 tracking-tight">{casualAvailable}</span>
+                <span className={`text-3xl font-extrabold tracking-tight ${casualAvailable < 0 ? 'text-red-600' : casualAvailable === 0 ? 'text-amber-600' : 'text-slate-900'}`}>{casualAvailable}</span>
                 <span className="text-xs font-bold text-slate-500 ml-1.5 uppercase">Days Available</span>
               </div>
               <span className="text-xs font-semibold text-slate-600 bg-white/80 px-2 py-0.5 rounded border border-slate-200/60">
@@ -77,7 +77,7 @@ export default function LeaveBalanceCard({ leaveBalance, onOpenApplyLeave }) {
             {/* Progress Bar */}
             <div className="w-full bg-slate-200/70 h-2 rounded-full overflow-hidden my-2.5">
               <div
-                className="bg-emerald-600 h-full rounded-full transition-all duration-700 ease-out"
+                className={`${casualAvailable < 0 ? 'bg-red-600' : 'bg-emerald-600'} h-full rounded-full transition-all duration-700 ease-out`}
                 style={{ width: `${casualAvailablePct}%` }}
               />
             </div>
@@ -101,15 +101,15 @@ export default function LeaveBalanceCard({ leaveBalance, onOpenApplyLeave }) {
                   <p className="text-[11px] font-medium text-slate-400">14 Days Quota</p>
                 </div>
               </div>
-              <span className="text-xs font-extrabold px-2 py-0.5 rounded-md bg-blue-100/80 text-blue-800 border border-blue-200">
-                {annualAvailablePct.toFixed(0)}% Left
+              <span className={`text-xs font-extrabold px-2 py-0.5 rounded-md ${annualAvailable < 0 ? 'bg-red-100 text-red-800 border border-red-300' : 'bg-blue-100/80 text-blue-800 border border-blue-200'}`}>
+                {annualAvailable < 0 ? 'Quota Exceeded' : `${annualAvailablePct.toFixed(0)}% Left`}
               </span>
             </div>
 
             {/* Numbers */}
             <div className="flex items-baseline justify-between mt-3 mb-2">
               <div>
-                <span className="text-3xl font-extrabold text-slate-900 tracking-tight">{annualAvailable}</span>
+                <span className={`text-3xl font-extrabold tracking-tight ${annualAvailable < 0 ? 'text-red-600' : annualAvailable === 0 ? 'text-amber-600' : 'text-slate-900'}`}>{annualAvailable}</span>
                 <span className="text-xs font-bold text-slate-500 ml-1.5 uppercase">Days Available</span>
               </div>
               <span className="text-xs font-semibold text-slate-600 bg-white/80 px-2 py-0.5 rounded border border-slate-200/60">
@@ -120,7 +120,7 @@ export default function LeaveBalanceCard({ leaveBalance, onOpenApplyLeave }) {
             {/* Progress Bar */}
             <div className="w-full bg-slate-200/70 h-2 rounded-full overflow-hidden my-2.5">
               <div
-                className="bg-[#022851] h-full rounded-full transition-all duration-700 ease-out"
+                className={`${annualAvailable < 0 ? 'bg-red-600' : 'bg-[#022851]'} h-full rounded-full transition-all duration-700 ease-out`}
                 style={{ width: `${annualAvailablePct}%` }}
               />
             </div>
@@ -129,7 +129,7 @@ export default function LeaveBalanceCard({ leaveBalance, onOpenApplyLeave }) {
           {/* Included Types Badges */}
           <div className="mt-2 pt-2 border-t border-blue-100/60">
             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-              Includes 5 Leave Types:
+              Includes 4 Leave Types:
             </p>
             <div className="flex flex-wrap gap-1">
               <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-white text-slate-700 px-1.5 py-0.5 rounded border border-slate-200 shadow-2xs">
@@ -140,9 +140,6 @@ export default function LeaveBalanceCard({ leaveBalance, onOpenApplyLeave }) {
               </span>
               <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-white text-slate-700 px-1.5 py-0.5 rounded border border-slate-200 shadow-2xs">
                 ⏱️ Short Leave
-              </span>
-              <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-white text-slate-700 px-1.5 py-0.5 rounded border border-slate-200 shadow-2xs">
-                ⚡ Power Cut
               </span>
               <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-white text-slate-700 px-1.5 py-0.5 rounded border border-slate-200 shadow-2xs">
                 🔄 Special

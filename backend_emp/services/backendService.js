@@ -526,15 +526,15 @@ const dashboardService = {
     const casualUsed = approvedList
       .filter(l => l.leave_type && (l.leave_type === 'Casual Leave' || l.leave_type.toLowerCase().includes('casual')))
       .reduce((sum, l) => sum + parseFloat(l.days_count || 0), 0);
-    const casualAvailable = Math.max(0, casualTotal - casualUsed);
+    const casualAvailable = casualTotal - casualUsed;
 
-    // Annual Leave: 14 days allocated (Medical Leave, Half Day, Short Leave, Power Cut, Special Leave)
-    const annualKeywords = ['medical', 'half day', 'short leave', 'power cut', 'special'];
+    // Annual Leave: 14 days allocated (Medical Leave, Half Day, Short Leave, Special Leave)
+    const annualKeywords = ['medical', 'half day', 'short leave', 'special'];
     const annualTotal = 14;
     const annualUsed = approvedList
       .filter(l => l.leave_type && annualKeywords.some(kw => l.leave_type.toLowerCase().includes(kw)))
       .reduce((sum, l) => sum + parseFloat(l.days_count || 0), 0);
-    const annualAvailable = Math.max(0, annualTotal - annualUsed);
+    const annualAvailable = annualTotal - annualUsed;
 
     const totalDays = casualTotal + annualTotal; // 21
     const totalUsed = casualUsed + annualUsed;
@@ -770,7 +770,7 @@ const dashboardService = {
           total_days: annualTotal,
           used_days: annualUsed,
           available_days: annualAvailable,
-          included_types: ['Medical Leave', 'Half Day', 'Short Leave', 'Power Cut', 'Special Leave']
+          included_types: ['Medical Leave', 'Half Day', 'Short Leave', 'Special Leave']
         }
       },
       recentLeaveRequests: formattedRecentLeaves,
@@ -1222,33 +1222,62 @@ const adminService = {
     if (staleUserIdsToWorking.length > 0) {
       supabase.from('users').update({ status: 'Working' }).in('id', staleUserIdsToWorking).then(() => {});
     }
-    if (userIdsToOnLeave.length > 0) {
-      supabase.from('users').update({ status: 'On Leave' }).in('id', userIdsToOnLeave).then(() => {});
-    }
+    // Fetch all approved leaves to compute exact available quota for pending request applicants
+    const { data: allApprovedLeaves } = await supabase
+      .from('leave_requests')
+      .select('user_id, leave_type, days_count')
+      .eq('status', 'Approved');
 
-    const pendingFormatted = (pendingRequests || []).map(r => ({
-      id: r.id,
-      employee_name: r.users?.name || 'Employee',
-      leave_type: r.leave_type,
-      from_date: r.start_date,
-      to_date: r.end_date,
-      days_count: r.days_count,
-      day_of_week: r.day_of_week,
-      start_time: r.start_time,
-      end_time: r.end_time,
-      special_session: r.special_session,
-      is_recurring: r.is_recurring,
-      reason: r.reason,
-      status: r.status,
-      applied_date: r.created_at ? r.created_at.split('T')[0] : '',
-      duration: r.leave_type === 'Special Leave' && r.day_of_week
-        ? formatSpecialDays(r.day_of_week)
-        : (r.leave_type === 'Short Leave' && r.start_time && r.end_time)
-          ? `${formatTime12(r.start_time)} - ${formatTime12(r.end_time)}`
-          : (r.leave_type === 'Half Day' && r.start_time && r.end_time)
-            ? `${r.start_time} - ${r.end_time} (${r.days_count} day)`
-            : `${r.days_count} ${r.days_count === 1 ? 'day' : 'days'}`
-    }));
+    const userBalancesMap = {};
+    (allUsers || []).forEach(u => {
+      const uLeaves = (allApprovedLeaves || []).filter(l => l.user_id === u.id);
+      const cUsed = uLeaves
+        .filter(l => l.leave_type && (l.leave_type === 'Casual Leave' || l.leave_type.toLowerCase().includes('casual')))
+        .reduce((sum, l) => sum + parseFloat(l.days_count || 0), 0);
+      const aKw = ['medical', 'half day', 'short leave', 'special'];
+      const aUsed = uLeaves
+        .filter(l => l.leave_type && aKw.some(kw => l.leave_type.toLowerCase().includes(kw)))
+        .reduce((sum, l) => sum + parseFloat(l.days_count || 0), 0);
+
+      userBalancesMap[u.id] = {
+        casualAvailable: 7 - cUsed,
+        annualAvailable: 14 - aUsed
+      };
+    });
+
+    const pendingFormatted = (pendingRequests || []).map(r => {
+      const uBal = userBalancesMap[r.user_id] || { casualAvailable: 7, annualAvailable: 14 };
+      const isCasual = r.leave_type === 'Casual Leave' || (r.leave_type && r.leave_type.toLowerCase().includes('casual'));
+      const avail = isCasual ? uBal.casualAvailable : uBal.annualAvailable;
+      const isExceeded = avail <= 0;
+
+      return {
+        id: r.id,
+        user_id: r.user_id,
+        employee_name: r.users?.name || 'Employee',
+        leave_type: r.leave_type,
+        from_date: r.start_date,
+        to_date: r.end_date,
+        days_count: r.days_count,
+        day_of_week: r.day_of_week,
+        start_time: r.start_time,
+        end_time: r.end_time,
+        special_session: r.special_session,
+        is_recurring: r.is_recurring,
+        reason: r.reason,
+        status: r.status,
+        user_available_balance: avail,
+        is_exceeded_balance: isExceeded,
+        applied_date: r.created_at ? r.created_at.split('T')[0] : '',
+        duration: r.leave_type === 'Special Leave' && r.day_of_week
+          ? formatSpecialDays(r.day_of_week)
+          : (r.leave_type === 'Short Leave' && r.start_time && r.end_time)
+            ? `${formatTime12(r.start_time)} - ${formatTime12(r.end_time)}`
+            : (r.leave_type === 'Half Day' && r.start_time && r.end_time)
+              ? `${r.start_time} - ${r.end_time} (${r.days_count} day)`
+              : `${r.days_count} ${r.days_count === 1 ? 'day' : 'days'}`
+      };
+    });
 
     const upcomingFormatted = (upcomingRequests || []).map(r => ({
       id: r.id,
