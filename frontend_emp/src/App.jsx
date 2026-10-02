@@ -184,10 +184,12 @@ export default function App() {
   // Admin Actions
   const handleApproveLeave = async (id) => {
     try {
-      await API.post('/admin/leave/approve', { id });
+      await API.post('/admin/leave/approve', { id, admin_email: currentUser?.email });
       await fetchAdminSummary();
     } catch (err) {
       console.error('Failed to approve leave:', err);
+      const msg = err.response?.data?.error || err.message || 'Failed to approve leave request';
+      alert(`⚠️ Approval Restricted:\n${msg}`);
     }
   };
 
@@ -315,6 +317,7 @@ export default function App() {
                 />
                 <PendingLeaveRequestsTable
                   requests={pendingLeaveRequests}
+                  currentUser={currentUser}
                   onApprove={handleApproveLeave}
                   onReject={handleRejectLeave}
                   onViewAll={() => setActiveTab('admin-leave-requests')}
@@ -334,6 +337,7 @@ export default function App() {
                 </div>
                 <PendingLeaveRequestsTable
                   requests={pendingLeaveRequests}
+                  currentUser={currentUser}
                   onApprove={handleApproveLeave}
                   onReject={handleRejectLeave}
                 />

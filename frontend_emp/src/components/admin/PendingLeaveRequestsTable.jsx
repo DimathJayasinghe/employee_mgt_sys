@@ -1,13 +1,33 @@
 import React, { useState } from 'react';
 import { ArrowUpRight, Eye, CheckCircle2, XCircle } from 'lucide-react';
 
-export default function PendingLeaveRequestsTable({ requests = [], onApprove, onReject, onViewAll }) {
+const AUTHORIZED_SENIOR_ADMINS = [
+  'channet@pwholdings.lk',
+  'nishadi@pwholdings.lk',
+  'hashan@pwholdings.lk'
+];
+
+export default function PendingLeaveRequestsTable({ requests = [], currentUser, onApprove, onReject, onViewAll }) {
   const [actionSuccess, setActionSuccess] = useState(null);
 
-  const handleApproveClick = async (id, name) => {
-    await onApprove(id);
-    setActionSuccess(`Approved leave request for ${name}`);
-    setTimeout(() => setActionSuccess(null), 3000);
+  const userEmail = (currentUser?.email || '').trim().toLowerCase();
+  const isAuthorizedSeniorAdmin = AUTHORIZED_SENIOR_ADMINS.includes(userEmail);
+
+  const handleApproveClick = async (req) => {
+    const isExceeded = req.is_exceeded_balance || (req.user_available_balance !== undefined && req.user_available_balance <= 0);
+    
+    if (isExceeded && !isAuthorizedSeniorAdmin) {
+      alert(`⚠️ Restricted: Over-quota leave requests can only be approved by authorized Senior Admins:\n• channet@pwholdings.lk\n• nishadi@pwholdings.lk\n• hashan@pwholdings.lk`);
+      return;
+    }
+
+    try {
+      await onApprove(req.id);
+      setActionSuccess(`Approved leave request for ${req.employee_name}`);
+      setTimeout(() => setActionSuccess(null), 3000);
+    } catch (err) {
+      console.error('Approve failed:', err);
+    }
   };
 
   const handleRejectClick = async (id, name) => {
@@ -78,8 +98,13 @@ export default function PendingLeaveRequestsTable({ requests = [], onApprove, on
                       <div>{req.employee_name}</div>
                       {isExceeded && (
                         <div className="mt-1">
-                          <span className="bg-red-100 text-red-800 border border-red-300 text-[10px] font-extrabold px-2 py-0.5 rounded-md inline-flex items-center gap-1 shadow-2xs animate-pulse">
-                            ⚠️ Quota Exceeded ({req.user_available_balance ?? 0} Bal)
+                          <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md inline-flex items-center gap-1 shadow-2xs ${
+                            isAuthorizedSeniorAdmin 
+                              ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                              : 'bg-red-100 text-red-800 border border-red-300'
+                          }`}>
+                            ⚠️ Over-Quota ({req.user_available_balance ?? 0} Bal)
+                            {!isAuthorizedSeniorAdmin && ' • Senior Admin Approval Required'}
                           </span>
                         </div>
                       )}
@@ -112,10 +137,15 @@ export default function PendingLeaveRequestsTable({ requests = [], onApprove, on
                     <td className="px-6 py-4 text-center">
                       <div className="flex items-center justify-center gap-2">
                         <button
-                          onClick={() => handleApproveClick(req.id, req.employee_name)}
-                          className="bg-[#07162c] hover:bg-[#0d274c] text-white text-xs font-bold px-3 py-1 rounded-lg transition-all shadow-2xs cursor-pointer"
+                          onClick={() => handleApproveClick(req)}
+                          className={`${
+                            isExceeded && !isAuthorizedSeniorAdmin
+                              ? 'bg-slate-300 text-slate-600 cursor-not-allowed border border-slate-400/50'
+                              : 'bg-[#07162c] hover:bg-[#0d274c] text-white cursor-pointer'
+                          } text-xs font-bold px-3 py-1 rounded-lg transition-all shadow-2xs`}
+                          title={isExceeded && !isAuthorizedSeniorAdmin ? "Over-quota leave requires approval from Channet, Nishadi, or Hashan" : "Approve leave"}
                         >
-                          Approve
+                          {isExceeded && !isAuthorizedSeniorAdmin ? '🔒 Restricted' : 'Approve'}
                         </button>
 
                         <button

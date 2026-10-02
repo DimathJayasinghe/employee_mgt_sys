@@ -528,8 +528,8 @@ const dashboardService = {
       .reduce((sum, l) => sum + parseFloat(l.days_count || 0), 0);
     const casualAvailable = casualTotal - casualUsed;
 
-    // Annual Leave: 14 days allocated (Medical Leave, Half Day, Short Leave, Special Leave)
-    const annualKeywords = ['medical', 'half day', 'short leave', 'special'];
+    // Annual Leave: 14 days allocated (Medical Leave, Half Day, Short Leave, Special Leave, Study Leave)
+    const annualKeywords = ['medical', 'half day', 'short leave', 'special', 'study'];
     const annualTotal = 14;
     const annualUsed = approvedList
       .filter(l => l.leave_type && annualKeywords.some(kw => l.leave_type.toLowerCase().includes(kw)))
@@ -1535,7 +1535,7 @@ const adminService = {
     return { leaves: formattedLeaves };
   },
 
-  async approveLeave(id) {
+  async approveLeave(id, adminEmail = null) {
     if (!id) throw new Error('id is required');
     const todayStr = getTodayStr();
 
@@ -1548,6 +1548,50 @@ const adminService = {
     const lReq = leaves[0];
 
     if (lReq.status === 'Approved') throw new Error('Leave is already approved');
+
+    // Check if employee has reached or exceeded leave quota
+    const { data: userApprovedLeaves } = await supabase
+      .from('leave_requests')
+      .select('leave_type, days_count')
+      .eq('user_id', lReq.user_id)
+      .eq('status', 'Approved');
+
+    const leaveType = lReq.leave_type || '';
+    const isCasual = leaveType === 'Casual Leave' || leaveType.toLowerCase().includes('casual');
+    const isPowerCut = leaveType === 'Power Cut';
+
+    if (!isPowerCut) {
+      const casualTotal = 7;
+      const annualTotal = 14;
+      const annualKeywords = ['medical', 'half day', 'short leave', 'special', 'study'];
+
+      const approvedList = userApprovedLeaves || [];
+      const casualUsed = approvedList
+        .filter(l => l.leave_type && (l.leave_type === 'Casual Leave' || l.leave_type.toLowerCase().includes('casual')))
+        .reduce((sum, l) => sum + parseFloat(l.days_count || 0), 0);
+      const casualAvailable = casualTotal - casualUsed;
+
+      const annualUsed = approvedList
+        .filter(l => l.leave_type && annualKeywords.some(kw => l.leave_type.toLowerCase().includes(kw)))
+        .reduce((sum, l) => sum + parseFloat(l.days_count || 0), 0);
+      const annualAvailable = annualTotal - annualUsed;
+
+      const currentAvailable = isCasual ? casualAvailable : annualAvailable;
+      const isOverQuota = currentAvailable <= 0 || (currentAvailable - parseFloat(lReq.days_count || 1)) < 0;
+
+      if (isOverQuota) {
+        const normalizedEmail = (adminEmail || '').trim().toLowerCase();
+        const AUTHORIZED_SENIOR_ADMINS = [
+          'channet@pwholdings.lk',
+          'nishadi@pwholdings.lk',
+          'hashan@pwholdings.lk'
+        ];
+
+        if (!normalizedEmail || !AUTHORIZED_SENIOR_ADMINS.includes(normalizedEmail)) {
+          throw new Error('Over-quota leave requests can only be approved by authorized Senior Admins (channet@pwholdings.lk, nishadi@pwholdings.lk, hashan@pwholdings.lk).');
+        }
+      }
+    }
 
     const { error: uErr } = await supabase
       .from('leave_requests')

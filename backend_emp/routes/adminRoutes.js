@@ -55,8 +55,8 @@ router.get('/leave-calendar', async (req, res) => {
 // POST /api/admin/leave/approve
 router.post('/leave/approve', async (req, res) => {
   try {
-    const { id } = req.body;
-    const result = await adminService.approveLeave(id);
+    const { id, admin_email } = req.body;
+    const result = await adminService.approveLeave(id, admin_email);
     res.json(result);
   } catch (err) {
     console.error('Approve leave error:', err.message);

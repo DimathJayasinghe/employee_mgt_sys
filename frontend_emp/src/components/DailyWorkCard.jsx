@@ -75,21 +75,24 @@ export default function DailyWorkCard({ initialWork, onSaveWork }) {
       {/* Top Label */}
       <div className="flex items-center justify-between">
         <p className="text-[11px] font-bold tracking-wider text-slate-400 uppercase">Daily Work Entry</p>
+        {/*
         <span className="text-[10px] font-extrabold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100 flex items-center gap-1">
           <Building2 className="w-3 h-3 text-blue-600" />
           <span>Zoho Books Sync ({availableClients.length} Live Clients)</span>
         </span>
+        */}
       </div>
 
       {/* Main Heading & Subtitle */}
       <h3 className="text-xl font-bold text-slate-900 mt-1">What are you working on today?</h3>
       <p className="text-xs text-slate-500 mt-0.5 mb-4">
-        Keep your team informed with a clear summary of your priorities and select the Zoho Books client(s) you are working for today.
+        Keep your team informed with a clear summary of your priorities for today.
       </p>
 
       {/* Form */}
       <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Zoho Client Selection Container */}
+        {/* TEMPORARILY HIDDEN ZOHO CLIENT SELECTION - UNCOMMENT TO RESTORE IN FUTURE */}
+        {/* 
         <div className="bg-slate-50/70 p-4 rounded-xl border border-slate-200/80 space-y-3">
           <div className="flex items-center justify-between">
             <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
@@ -101,7 +104,6 @@ export default function DailyWorkCard({ initialWork, onSaveWork }) {
             </span>
           </div>
 
-          {/* Selected Client Badges */}
           {selectedClients.length > 0 && (
             <div className="flex flex-wrap gap-1.5 p-2 bg-white rounded-xl border border-blue-100 shadow-2xs">
               {selectedClients.map((cName) => (
@@ -123,9 +125,7 @@ export default function DailyWorkCard({ initialWork, onSaveWork }) {
             </div>
           )}
 
-          {/* Search & Select Controls */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-            {/* Search Input for 237+ Clients */}
             <div className="relative flex-1">
               <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
@@ -137,7 +137,6 @@ export default function DailyWorkCard({ initialWork, onSaveWork }) {
               />
             </div>
 
-            {/* Quick Dropdown Select */}
             <select
               onChange={(e) => {
                 if (e.target.value) {
@@ -159,7 +158,6 @@ export default function DailyWorkCard({ initialWork, onSaveWork }) {
             </select>
           </div>
 
-          {/* Client Filtered Pills Grid */}
           <div className="max-h-36 overflow-y-auto pr-1 flex flex-wrap gap-1.5 pt-1">
             {clientSearch.trim().length > 0 && !selectedClients.includes(clientSearch.trim()) && (
               <button
@@ -206,6 +204,7 @@ export default function DailyWorkCard({ initialWork, onSaveWork }) {
             )}
           </div>
         </div>
+        */}
 
         {/* Work Description Textarea */}
         <div>

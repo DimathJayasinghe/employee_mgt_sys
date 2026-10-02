@@ -129,7 +129,7 @@ export default function LeaveBalanceCard({ leaveBalance, onOpenApplyLeave }) {
           {/* Included Types Badges */}
           <div className="mt-2 pt-2 border-t border-blue-100/60">
             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-              Includes 4 Leave Types:
+              Includes 5 Leave Types:
             </p>
             <div className="flex flex-wrap gap-1">
               <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-white text-slate-700 px-1.5 py-0.5 rounded border border-slate-200 shadow-2xs">
@@ -143,6 +143,9 @@ export default function LeaveBalanceCard({ leaveBalance, onOpenApplyLeave }) {
               </span>
               <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-white text-slate-700 px-1.5 py-0.5 rounded border border-slate-200 shadow-2xs">
                 🔄 Special
+              </span>
+              <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-white text-slate-700 px-1.5 py-0.5 rounded border border-slate-200 shadow-2xs">
+                📚 Study Leave
               </span>
             </div>
           </div>

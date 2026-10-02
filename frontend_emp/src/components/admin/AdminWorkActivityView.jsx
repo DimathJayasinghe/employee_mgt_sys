@@ -71,6 +71,16 @@ export default function AdminWorkActivityView() {
   });
 
   const employeeList = Object.values(employeeMap).sort((a, b) => a.name.localeCompare(b.name));
+  
+  const filteredEmployeeList = employeeList.filter((emp) => {
+    if (!searchTerm) return true;
+    const term = searchTerm.trim().toLowerCase();
+    return (
+      emp.name.toLowerCase().includes(term) ||
+      emp.department.toLowerCase().includes(term)
+    );
+  });
+
   const activeEmployee = selectedEmpId !== 'All' ? employeeList.find(e => String(e.id) === String(selectedEmpId)) : null;
 
   // Filter activities
@@ -85,10 +95,11 @@ export default function AdminWorkActivityView() {
       return false;
     }
 
-    const matchesSearch =
-      empName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      workDesc.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      dept.toLowerCase().includes(searchTerm.toLowerCase());
+    const term = searchTerm.trim().toLowerCase();
+    const matchesSearch = !term ||
+      empName.toLowerCase().includes(term) ||
+      workDesc.toLowerCase().includes(term) ||
+      dept.toLowerCase().includes(term);
 
     const matchesDept = deptFilter === 'All' || dept.toLowerCase() === deptFilter.toLowerCase();
     const matchesDate = !dateFilter || entryDate === dateFilter;
@@ -171,9 +182,19 @@ export default function AdminWorkActivityView() {
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Filter tasks..."
-              className="bg-white border border-slate-200 text-xs text-slate-700 placeholder-slate-400 rounded-xl pl-8 pr-3 py-2.5 w-40 sm:w-48 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-medium shadow-2xs"
+              placeholder="Search employee or task..."
+              className="bg-white border border-slate-200 text-xs text-slate-700 placeholder-slate-400 rounded-xl pl-8 pr-7 py-2.5 w-44 sm:w-56 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-medium shadow-2xs"
             />
+            {searchTerm && (
+              <button
+                type="button"
+                onClick={() => setSearchTerm('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold p-0.5 cursor-pointer"
+                title="Clear search"
+              >
+                ✕
+              </button>
+            )}
           </div>
 
           {/* Date Filter */}
@@ -229,18 +250,20 @@ export default function AdminWorkActivityView() {
       )}
 
       {/* Employee Quick Pick Grid (When viewing All Employees) */}
-      {selectedEmpId === 'All' && !loading && employeeList.length > 0 && (
+      {selectedEmpId === 'All' && !loading && filteredEmployeeList.length > 0 && (
         <div>
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-1.5">
               <UserCheck className="w-4 h-4 text-blue-600" />
-              <h3 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">Select Employee to View Activity History</h3>
+              <h3 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">
+                {searchTerm ? `Matching Employees (${filteredEmployeeList.length})` : 'Select Employee to View Activity History'}
+              </h3>
             </div>
-            <span className="text-xs text-slate-500 font-semibold">{employeeList.length} Employees</span>
+            <span className="text-xs text-slate-500 font-semibold">{filteredEmployeeList.length} Employees</span>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5">
-            {employeeList.map((emp) => (
+            {filteredEmployeeList.map((emp) => (
               <button
                 type="button"
                 key={emp.id}

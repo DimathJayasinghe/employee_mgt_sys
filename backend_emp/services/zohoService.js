@@ -53,9 +53,9 @@ const zohoService = {
         for (const accountsUrl of candidateAccounts) {
           try {
             const params = new URLSearchParams();
-            params.append('refresh_token', refreshToken);
-            params.append('client_id', clientId);
-            params.append('client_secret', clientSecret);
+            params.append('refresh_token', refreshToken ? refreshToken.trim() : '');
+            params.append('client_id', clientId ? clientId.trim() : '');
+            params.append('client_secret', clientSecret ? clientSecret.trim() : '');
             params.append('grant_type', 'refresh_token');
 
             const tokenRes = await fetch(`${accountsUrl}/oauth/v2/token`, {
@@ -69,8 +69,8 @@ const zohoService = {
               tokenData = resJson;
               successfulAccountsUrl = accountsUrl;
               break;
-            } else if (resJson.error !== 'invalid_client') {
-              console.warn(`Zoho token error at ${accountsUrl}:`, resJson.error);
+            } else {
+              console.warn(`Zoho token error at ${accountsUrl}:`, JSON.stringify(resJson));
             }
           } catch (err) {
             console.warn(`Token request failed at ${accountsUrl}:`, err.message);
