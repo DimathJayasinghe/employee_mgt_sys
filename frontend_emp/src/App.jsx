@@ -27,6 +27,7 @@ import HalfDayAndStudyLeave from './components/admin/HalfDayAndStudyLeave';
 import PendingLeaveRequestsTable from './components/admin/PendingLeaveRequestsTable';
 import AdminAllEmployeesView from './components/admin/AdminAllEmployeesView';
 import AdminWorkActivityView from './components/admin/AdminWorkActivityView';
+import AdminClientAnalyticsView from './components/admin/AdminClientAnalyticsView';
 import LeaveCalendarView from './components/admin/LeaveCalendarView';
 
 export default function App() {
@@ -200,10 +201,10 @@ export default function App() {
   };
 
   // Employee Actions
-  const handleSaveWork = async (newDescription) => {
+  const handleSaveWork = async (newDescription, clients = []) => {
     if (!currentUser?.id) return;
     try {
-      await API.post('/work-entry', { user_id: currentUser.id, work_description: newDescription });
+      await API.post('/work-entry', { user_id: currentUser.id, work_description: newDescription, clients });
       setTodayWork(newDescription);
     } catch (err) {
       console.error('Failed to save work entry:', err);
@@ -242,6 +243,7 @@ export default function App() {
     'admin-dashboard': 'Dashboard',
     'all-employees': 'All Employees',
     'work-activity': 'Work Activity',
+    'client-analytics': 'Client Analytics',
     'admin-leave-requests': 'Leave Requests',
     'leave-calendar': 'Leave Calendar',
     'settings': 'System Settings'
@@ -339,6 +341,8 @@ export default function App() {
             )}
 
             {activeTab === 'work-activity' && <AdminWorkActivityView />}
+
+            {activeTab === 'client-analytics' && <AdminClientAnalyticsView />}
 
             {activeTab === 'leave-calendar' && <LeaveCalendarView />}
 

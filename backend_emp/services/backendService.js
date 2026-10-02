@@ -784,9 +784,16 @@ const dashboardService = {
     };
   },
 
-  async saveWorkEntry(userId, work_description) {
+  async saveWorkEntry(userId, work_description, clients = []) {
     if (!userId) throw new Error('user_id is required');
     const todayStr = getTodayStr();
+    const clientList = Array.isArray(clients) ? clients : (clients ? [clients] : []);
+
+    let finalDescription = (work_description || '').trim();
+    if (clientList.length > 0) {
+      finalDescription = finalDescription.replace(/\n?\[Clients:[^\]]+\]/gi, '').trim();
+      finalDescription = `${finalDescription}\n[Clients: ${clientList.join(', ')}]`.trim();
+    }
 
     const { data: existing } = await supabase
       .from('daily_work_entries')
@@ -794,25 +801,25 @@ const dashboardService = {
       .eq('user_id', userId)
       .eq('entry_date', todayStr);
 
+    const payload = {
+      work_description: finalDescription,
+      updated_at: new Date().toISOString()
+    };
+
     if (existing && existing.length > 0) {
       await supabase
         .from('daily_work_entries')
-        .update({
-          work_description: work_description || '',
-          updated_at: new Date().toISOString()
-        })
+        .update(payload)
         .eq('id', existing[0].id);
     } else {
+      payload.user_id = userId;
+      payload.entry_date = todayStr;
       await supabase
         .from('daily_work_entries')
-        .insert([{
-          user_id: userId,
-          entry_date: todayStr,
-          work_description: work_description || ''
-        }]);
+        .insert([payload]);
     }
 
-    return { message: 'Work entry updated successfully', work_description };
+    return { message: 'Work entry updated successfully', work_description: finalDescription, clients: clientList };
   },
 
   async getWorkHistory(userId) {

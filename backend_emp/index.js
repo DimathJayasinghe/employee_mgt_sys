@@ -8,6 +8,7 @@ const { initDatabase } = require('./initDb');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const authRoutes = require('./routes/authRoutes');
+const zohoRoutes = require('./routes/zohoRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -22,6 +23,7 @@ initDatabase();
 app.use('/api', dashboardRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api', zohoRoutes);
 
 // Basic health check route
 app.get('/api/health', (req, res) => {
