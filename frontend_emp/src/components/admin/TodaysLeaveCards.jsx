@@ -19,8 +19,12 @@ export default function TodaysLeaveCards({ leaves = [] }) {
               {/* Header info */}
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-slate-100 text-slate-700 font-bold text-xs flex items-center justify-center border border-slate-200 shrink-0">
-                    {item.initials}
+                  <div className="w-9 h-9 rounded-full bg-slate-100 text-slate-700 font-bold text-xs flex items-center justify-center border border-slate-200 shrink-0 overflow-hidden">
+                    {item.photo_url ? (
+                      <img src={item.photo_url} alt={item.name} className="w-full h-full object-cover" />
+                    ) : (
+                      item.initials || (item.name ? item.name.slice(0, 2).toUpperCase() : 'EP')
+                    )}
                   </div>
                   <div>
                     <h4 className="font-bold text-slate-900 text-sm leading-tight">{item.name}</h4>

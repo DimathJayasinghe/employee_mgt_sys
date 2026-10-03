@@ -119,8 +119,12 @@ export default function AdminWorkActivityView() {
             {filtered.map((item) => (
               <div key={item.id} className="p-5 hover:bg-slate-50/50 transition-colors flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex items-start gap-4">
-                  <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-700 font-bold text-xs flex items-center justify-center border border-blue-200/60 shrink-0">
-                    {item.initials}
+                  <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-700 font-bold text-xs flex items-center justify-center border border-blue-200/60 shrink-0 overflow-hidden">
+                    {item.photo_url ? (
+                      <img src={item.photo_url} alt={item.employee_name || item.name} className="w-full h-full object-cover" />
+                    ) : (
+                      item.initials || (item.employee_name ? item.employee_name.slice(0, 2).toUpperCase() : 'EP')
+                    )}
                   </div>
                   <div>
                     <div className="flex items-center gap-2">

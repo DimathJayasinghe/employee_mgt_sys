@@ -111,8 +111,12 @@ export default function TodaysWorkforceTable({ workforce = [] }) {
                 <tr key={emp.id || Math.random()} className="hover:bg-slate-50/70 transition-colors">
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-900 font-bold text-xs flex items-center justify-center shrink-0 border border-blue-200/60 shadow-2xs">
-                        {emp.initials}
+                      <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-900 font-bold text-xs flex items-center justify-center shrink-0 border border-blue-200/60 shadow-2xs overflow-hidden">
+                        {emp.photo_url ? (
+                          <img src={emp.photo_url} alt={emp.name} className="w-full h-full object-cover" />
+                        ) : (
+                          emp.initials || (emp.name ? emp.name.slice(0, 2).toUpperCase() : 'EP')
+                        )}
                       </div>
                       <span className="font-bold text-slate-900 text-xs">{emp.name}</span>
                     </div>

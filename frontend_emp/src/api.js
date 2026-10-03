@@ -11,7 +11,7 @@ function getAuthToken() {
     const storedUser = localStorage.getItem('emp_mgt_user');
     if (storedUser) {
       const parsed = JSON.parse(storedUser);
-      return parsed.token || null;
+      return parsed.token || parsed.id || null;
     }
   } catch (e) {
     // Ignore JSON parse errors

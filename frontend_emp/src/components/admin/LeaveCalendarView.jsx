@@ -293,8 +293,12 @@ export default function LeaveCalendarView() {
                   >
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="w-8 h-8 rounded-full bg-slate-800 text-white font-bold text-xs flex items-center justify-center shrink-0">
-                          {leave.initials}
+                        <div className="w-8 h-8 rounded-full bg-slate-800 text-white font-bold text-xs flex items-center justify-center shrink-0 overflow-hidden">
+                          {leave.photo_url ? (
+                            <img src={leave.photo_url} alt={leave.employee_name} className="w-full h-full object-cover" />
+                          ) : (
+                            leave.initials || (leave.employee_name ? leave.employee_name.slice(0, 2).toUpperCase() : 'EP')
+                          )}
                         </div>
                         <div className="min-w-0">
                           <h4 className="text-xs font-bold text-slate-900 truncate">

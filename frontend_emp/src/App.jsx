@@ -16,6 +16,7 @@ import ApplyLeaveModal from './components/ApplyLeaveModal';
 import WorkHistoryView from './components/WorkHistoryView';
 import LeaveHistoryView from './components/LeaveHistoryView';
 import VisitFormView from './components/VisitFormView';
+import EmployeeProfileView from './components/EmployeeProfileView';
 
 // Admin Dashboard Components
 import AdminSidebar from './components/admin/AdminSidebar';
@@ -108,7 +109,7 @@ export default function App() {
     } else if (currentView === 'employee' && currentUser?.id) {
       fetchEmployeeSummary(currentUser.id);
     }
-  }, [currentView]);
+  }, [currentView, activeTab]);
 
   const fetchAdminSummary = async () => {
     try {
@@ -238,18 +239,28 @@ export default function App() {
     setIsMobileOpen(false);
   };
 
+  const [selectedEmployee, setSelectedEmployee] = useState(null);
+
+  // Helper for selecting an employee to view profile
+  const handleSelectEmployee = (emp) => {
+    setSelectedEmployee(emp);
+    setActiveTab('profile');
+  };
+
   const adminTitles = {
     'admin-dashboard': 'Dashboard',
     'all-employees': 'All Employees',
     'work-activity': 'Work Activity',
     'admin-leave-requests': 'Leave Requests',
     'leave-calendar': 'Leave Calendar',
-    'settings': 'System Settings'
+    'settings': 'System Settings',
+    'profile': 'Employee Profile'
   };
 
   const employeeTitles = {
     'dashboard': 'Dashboard',
     'work-history': "Today's Work Log",
+    'profile': 'Employee Profile',
     'leave-history': 'My Leave History',
     'visit-form': 'Visiting Form'
   };
@@ -265,7 +276,12 @@ export default function App() {
       <div className="flex min-h-screen bg-[#f4f6fa] text-slate-800 font-sans antialiased">
         <AdminSidebar
           activeTab={activeTab}
-          setActiveTab={setActiveTab}
+          setActiveTab={(tab) => {
+            if (tab === 'profile' && !selectedEmployee) {
+              setSelectedEmployee(null);
+            }
+            setActiveTab(tab);
+          }}
           adminUser={adminUser}
           onLogout={handleLogout}
           isMobileOpen={isMobileOpen}
@@ -320,7 +336,7 @@ export default function App() {
               </div>
             )}
 
-            {activeTab === 'all-employees' && <AdminAllEmployeesView />}
+            {activeTab === 'all-employees' && <AdminAllEmployeesView employees={allEmployees} onSelectEmployee={handleSelectEmployee} />}
 
             {activeTab === 'admin-leave-requests' && (
               <div className="max-w-7xl mx-auto space-y-6">
@@ -342,6 +358,17 @@ export default function App() {
 
             {activeTab === 'leave-calendar' && <LeaveCalendarView />}
 
+            {activeTab === 'profile' && (
+              <EmployeeProfileView 
+                onBack={() => {
+                  setSelectedEmployee(null);
+                  setActiveTab('admin-dashboard');
+                }} 
+                user={selectedEmployee || currentUser || adminUser}
+                onSelectEmployee={handleSelectEmployee}
+              />
+            )}
+
             {activeTab === 'settings' && (
               <div className="bg-white rounded-2xl p-6 sm:p-12 text-center border border-slate-200 shadow-xs max-w-4xl mx-auto">
                 <h3 className="text-lg font-bold text-slate-800 capitalize">{adminTitles[activeTab]}</h3>
@@ -359,7 +386,12 @@ export default function App() {
     <div className="flex min-h-screen bg-[#f4f6fa] text-slate-800 font-sans antialiased">
       <Sidebar
         activeTab={activeTab}
-        setActiveTab={setActiveTab}
+        setActiveTab={(tab) => {
+          if (tab === 'profile') {
+            setSelectedEmployee(null);
+          }
+          setActiveTab(tab);
+        }}
         onOpenApplyLeave={() => setIsApplyLeaveOpen(true)}
         user={user}
         onLogout={handleLogout}
@@ -373,6 +405,14 @@ export default function App() {
           user={user}
           onToggleViewMode={currentUser?.role === 'Admin' ? toggleViewMode : undefined}
           onMenuClick={() => setIsMobileOpen(true)}
+          onNavigateTab={(tab) => {
+            if (tab === 'profile') {
+              setSelectedEmployee(null);
+            }
+            setActiveTab(tab);
+          }}
+          onLogout={handleLogout}
+          onSelectEmployee={handleSelectEmployee}
         />
 
         <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
@@ -398,6 +438,17 @@ export default function App() {
 
           {activeTab === 'work-history' && <WorkHistoryView userId={currentUser?.id} />}
 
+          {activeTab === 'profile' && (
+            <EmployeeProfileView 
+              onBack={() => {
+                setSelectedEmployee(null);
+                setActiveTab('dashboard');
+              }} 
+              user={selectedEmployee || currentUser || user}
+              onSelectEmployee={handleSelectEmployee}
+            />
+          )}
+
           {activeTab === 'leave-history' && (
             <LeaveHistoryView 
               userId={currentUser?.id} 
@@ -418,5 +469,4 @@ export default function App() {
       />
     </div>
   );
-
 }
