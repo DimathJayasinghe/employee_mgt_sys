@@ -357,9 +357,13 @@ export default function AdminWorkActivityView() {
                                 type="button"
                                 onClick={() => setSelectedEmpId(item.user_id || empName)}
                                 title={`Click to view ${empName}'s full history`}
-                                className="w-9 h-9 rounded-xl bg-white text-blue-800 font-extrabold text-xs flex items-center justify-center border border-slate-200 shadow-2xs group-hover:border-blue-400 shrink-0 cursor-pointer"
+                                className="w-9 h-9 rounded-xl bg-white text-blue-800 font-extrabold text-xs flex items-center justify-center border border-slate-200 shadow-2xs group-hover:border-blue-400 shrink-0 cursor-pointer overflow-hidden"
                               >
-                                {initials}
+                                {item.photo_url ? (
+                                  <img src={item.photo_url} alt={empName} className="w-full h-full object-cover" />
+                                ) : (
+                                  initials
+                                )}
                               </button>
                             )}
 

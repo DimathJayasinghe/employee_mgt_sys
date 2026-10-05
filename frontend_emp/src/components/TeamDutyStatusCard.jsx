@@ -105,12 +105,16 @@ export default function TeamDutyStatusCard({ workingWorkforce = [], todaysLeave 
               >
                 {/* Left: Avatar + Name + Dept */}
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs border ${
+                  <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs border overflow-hidden ${
                     isWorking 
                       ? 'bg-emerald-50 text-emerald-800 border-emerald-200' 
                       : 'bg-purple-50 text-purple-800 border-purple-200'
                   }`}>
-                    {emp.initials || (emp.name ? emp.name.slice(0, 2).toUpperCase() : 'EM')}
+                    {emp.photo_url ? (
+                      <img src={emp.photo_url} alt={emp.name} className="w-full h-full object-cover" />
+                    ) : (
+                      emp.initials || (emp.name ? emp.name.slice(0, 2).toUpperCase() : 'EM')
+                    )}
                   </div>
                   <div className="min-w-0">
                     <p className="text-xs font-bold text-slate-900 truncate">

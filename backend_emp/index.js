@@ -5,25 +5,30 @@ require('dotenv').config({ path: path.resolve(__dirname, '.env') });
 
 
 const { initDatabase } = require('./initDb');
+const { initBirthdayCron } = require('./services/birthdayReminder');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const authRoutes = require('./routes/authRoutes');
 const zohoRoutes = require('./routes/zohoRoutes');
+const profileRoutes = require('./routes/profileRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
-// Initialize Database connection & tables
+// Initialize Database connection & Birthday Cron
 initDatabase();
+initBirthdayCron();
 
 // API Routes
 app.use('/api', dashboardRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api', zohoRoutes);
+app.use('/api', profileRoutes);
 
 // Basic health check route
 app.get('/api/health', (req, res) => {

@@ -2,26 +2,31 @@ import React, { useState, useEffect } from 'react';
 import API from '../../api';
 import { Search, ChevronDown, UserCheck, Shield } from 'lucide-react';
 
-export default function AdminAllEmployeesView() {
-  const [employees, setEmployees] = useState([]);
-  const [loading, setLoading] = useState(true);
+export default function AdminAllEmployeesView({ employees: initialEmployees = [], onSelectEmployee }) {
+  const [employees, setEmployees] = useState(initialEmployees);
+  const [loading, setLoading] = useState(!initialEmployees || initialEmployees.length === 0);
   const [searchTerm, setSearchTerm] = useState('');
   const [deptFilter, setDeptFilter] = useState('All departments');
   const [statusFilter, setStatusFilter] = useState('All statuses');
   const [workFilter, setWorkFilter] = useState('All Work Status');
 
   useEffect(() => {
+    if (initialEmployees && initialEmployees.length > 0) {
+      setEmployees(initialEmployees);
+      setLoading(false);
+    }
     fetchEmployees();
-  }, []);
+  }, [initialEmployees]);
 
   const fetchEmployees = async () => {
     try {
       const res = await API.get('/admin/employees');
       const list = Array.isArray(res.data) ? res.data : (res.data?.employees || []);
-      setEmployees(list);
+      if (list && list.length > 0) {
+        setEmployees(list);
+      }
     } catch (err) {
       console.error('Error fetching all employees:', err);
-      setEmployees([]);
     } finally {
       setLoading(false);
     }
@@ -43,13 +48,19 @@ export default function AdminAllEmployeesView() {
   const workFilterOptions = ['All Work Status', 'Work Submitted', 'Pending Description'];
 
   const filtered = employees.filter(emp => {
-    const term = searchTerm.toLowerCase();
-    const matchesSearch = emp.name.toLowerCase().includes(term) ||
-                          emp.department.toLowerCase().includes(term) ||
-                          (emp.leave_type && emp.leave_type.toLowerCase().includes(term)) ||
-                          (emp.today_work && emp.today_work.toLowerCase().includes(term));
+    if (!emp) return false;
+    const empName = (emp.name || '').toLowerCase();
+    const empDept = (emp.department || '').toLowerCase();
+    const leaveType = (emp.leave_type || '').toLowerCase();
+    const todayWork = (emp.today_work || '').toLowerCase();
+    const term = (searchTerm || '').toLowerCase();
+
+    const matchesSearch = empName.includes(term) ||
+                          empDept.includes(term) ||
+                          leaveType.includes(term) ||
+                          todayWork.includes(term);
     const matchesDept = deptFilter === 'All departments' ||
-                        emp.department.toLowerCase() === deptFilter.toLowerCase();
+                        empDept === deptFilter.toLowerCase();
     
     let matchesStatus = true;
     if (statusFilter === 'All Leave') {
@@ -328,16 +339,31 @@ export default function AdminAllEmployeesView() {
                 filtered.map((emp) => (
                   <tr key={emp.id} className="hover:bg-slate-50/60 transition-colors">
                     <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-900 font-bold text-xs flex items-center justify-center shrink-0 border border-blue-200">
-                          {emp.initials}
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-900 font-bold text-xs flex items-center justify-center shrink-0 border border-blue-200 overflow-hidden shadow-2xs">
+                            {emp.photo_url ? (
+                              <img src={emp.photo_url} alt={emp.name} className="w-full h-full object-cover" />
+                            ) : (
+                              emp.initials || (emp.name ? emp.name.slice(0, 2).toUpperCase() : 'EP')
+                            )}
+                          </div>
+                          <div>
+                            <span className="font-bold text-slate-900 text-xs block">{emp.name}</span>
+                            {emp.role === 'Admin' && (
+                              <span className="text-[10px] text-blue-600 font-bold">Admin</span>
+                            )}
+                          </div>
                         </div>
-                        <div>
-                          <span className="font-bold text-slate-900 text-xs block">{emp.name}</span>
-                          {emp.role === 'Admin' && (
-                            <span className="text-[10px] text-blue-600 font-bold">Admin</span>
-                          )}
-                        </div>
+                        {onSelectEmployee && (
+                          <button
+                            onClick={() => onSelectEmployee(emp)}
+                            className="bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-[10px] font-bold px-2 py-1 rounded-md transition-all cursor-pointer shrink-0"
+                            title="View Employee Profile"
+                          >
+                            View Profile
+                          </button>
+                        )}
                       </div>
                     </td>
                     <td className="px-6 py-4 text-slate-600 font-semibold">{emp.department}</td>

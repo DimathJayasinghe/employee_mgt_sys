@@ -306,7 +306,7 @@ const authService = {
 
     const { data: users, error } = await supabase
       .from('users')
-      .select('id, name, department, email, password, initials, status, role')
+      .select('id, name, department, email, password, initials, status, role, emp_code, designation, card_designation, employment_type, dob, gender, nic, address, phone, personal_email, date_joined, photo_url, skills')
       .ilike('email', cleanEmail);
 
     if (error || !users || users.length === 0) {
@@ -330,6 +330,8 @@ const authService = {
       JWT_SECRET,
       { expiresIn: '30d' }
     );
+
+    user.token = token;
 
     return { user, token };
   },
@@ -456,6 +458,8 @@ const authService = {
       { expiresIn: '30d' }
     );
 
+    newUser.token = token;
+
     return { message: 'Account created successfully', user: newUser, token };
   },
 
@@ -495,7 +499,7 @@ const dashboardService = {
     // 1. Fetch User Profile
     const { data: users, error: uErr } = await supabase
       .from('users')
-      .select('id, name, department, email, initials, status, role')
+      .select('id, name, department, email, initials, status, role, emp_code, designation, card_designation, employment_type, dob, gender, nic, address, phone, personal_email, date_joined, photo_url, skills')
       .eq('id', userId);
 
     if (uErr || !users || users.length === 0) {
@@ -1003,10 +1007,13 @@ const adminService = {
   async getAdminSummary() {
     const todayStr = getTodayStr();
 
-    const { data: allUsers } = await supabase
+    const { data: allUsers, error: uErr } = await supabase
       .from('users')
-      .select('id, name, initials, department, status, role')
-      .order('name', { ascending: true });
+      .select('*');
+
+    if (uErr) {
+      console.warn('Supabase allUsers fetch error in getAdminSummary:', uErr.message);
+    }
 
     const { data: todayWorks } = await supabase
       .from('daily_work_entries')
@@ -1383,10 +1390,13 @@ const adminService = {
   async getAdminEmployees() {
     const todayStr = getTodayStr();
 
-    const { data: allUsers } = await supabase
+    const { data: allUsers, error: uErr } = await supabase
       .from('users')
-      .select('id, name, initials, department, status, role')
-      .order('name', { ascending: true });
+      .select('*');
+
+    if (uErr) {
+      console.warn('Supabase allUsers fetch error in getAdminEmployees:', uErr.message);
+    }
 
     const { data: todayWorks } = await supabase
       .from('daily_work_entries')
@@ -1442,6 +1452,20 @@ const adminService = {
         department: u.department || 'IT',
         status: displayStatus,
         role: u.role || 'Employee',
+        emp_code: u.emp_code || null,
+        designation: u.designation || u.card_designation || null,
+        card_designation: u.card_designation || null,
+        employment_type: u.employment_type || null,
+        dob: u.dob || null,
+        gender: u.gender || null,
+        nic: u.nic || null,
+        address: u.address || null,
+        phone: u.phone || null,
+        personal_email: u.personal_email || null,
+        date_joined: u.date_joined || u.joined_date || null,
+        joined_date: u.date_joined || u.joined_date || null,
+        photo_url: u.photo_url || null,
+        skills: u.skills || null,
         today_work: todayWork,
         updated_ago: 'Today',
         leave_type: activeLeave ? activeLeave.leave_type : null,
@@ -1468,7 +1492,7 @@ const adminService = {
       .from('daily_work_entries')
       .select(`
         id, user_id, entry_date, work_description, created_at, updated_at,
-        users (id, name, initials, department)
+        users (id, name, initials, department, photo_url)
       `)
       .order('entry_date', { ascending: false })
       .order('created_at', { ascending: false });
@@ -1480,6 +1504,7 @@ const adminService = {
       user_id: e.user_id,
       employee_name: e.users?.name || 'Employee',
       initials: e.users?.initials || 'EP',
+      photo_url: e.users?.photo_url || null,
       department: e.users?.department || 'IT',
       work_date: e.entry_date,
       work_description: e.work_description || 'No description provided.',
@@ -1501,7 +1526,7 @@ const adminService = {
         id, user_id, leave_type, start_date, end_date, days_count,
         day_of_week, start_time, end_time, special_session, is_recurring,
         status, reason, created_at,
-        users (id, name, initials, department)
+        users (id, name, initials, department, photo_url)
       `)
       .eq('status', 'Approved')
       .or(`and(start_date.lte.${endDate},end_date.gte.${startDate}),is_recurring.eq.true`);
@@ -1513,6 +1538,7 @@ const adminService = {
       user_id: l.user_id,
       employee_name: l.users?.name || 'Employee',
       initials: l.users?.initials || 'EP',
+      photo_url: l.users?.photo_url || null,
       department: l.users?.department || 'IT',
       leave_type: l.leave_type,
       start_date: l.start_date ? l.start_date.split('T')[0] : '',
@@ -1782,9 +1808,394 @@ const adminService = {
   }
 };
 
+// =============================================================
+// PROFILE SERVICE
+// =============================================================
+const PROFILE_COLUMNS = 'id, emp_code, designation, card_designation, employment_type, dob, gender, nic, address, phone, personal_email, date_joined, photo_url, skills, department, status, role, email, name, initials';
+
+const profileService = {
+  async getMyProfile(userId) {
+    if (!userId) {
+      const err = new Error('User ID is required');
+      err.status = 400;
+      throw err;
+    }
+
+    const numId = parseInt(userId, 10);
+    const isNum = !isNaN(numId) && String(numId) === String(userId).trim();
+
+    let query = supabase.from('users').select(PROFILE_COLUMNS);
+    if (isNum) {
+      query = query.or(`id.eq.${numId},id.eq.${userId}`);
+    } else {
+      query = query.or(`id.eq.${userId},email.eq.${userId}`);
+    }
+
+    const { data: users, error } = await query;
+
+    if (error || !users || users.length === 0) {
+      // Fallback 1: ilike email or exact numeric match
+      let fbQuery = supabase.from('users').select('*');
+      if (isNum) {
+        fbQuery = fbQuery.eq('id', numId);
+      } else {
+        fbQuery = fbQuery.ilike('email', `%${userId}%`);
+      }
+      const { data: fallbackUsers } = await fbQuery;
+
+      if (!fallbackUsers || fallbackUsers.length === 0) {
+        // Fallback 2: fetch default user record
+        const { data: defaultUsers } = await supabase.from('users').select('*').order('id', { ascending: true }).limit(1);
+        if (!defaultUsers || defaultUsers.length === 0) {
+          const err = new Error('Profile not found');
+          err.status = 404;
+          throw err;
+        }
+        delete defaultUsers[0].password;
+        return defaultUsers[0];
+      }
+      delete fallbackUsers[0].password;
+      return fallbackUsers[0];
+    }
+
+    delete users[0].password;
+    return users[0];
+  },
+
+  async updateMyProfile(userId, updates = {}, requestingUser) {
+    if (!userId) {
+      const err = new Error('User ID is required');
+      err.status = 400;
+      throw err;
+    }
+
+    // Resolve target numeric user record first to guarantee valid numeric ID
+    const targetProfile = await this.getMyProfile(userId);
+    const resolvedId = targetProfile.id;
+
+    const payload = {};
+
+    // Phone
+    if (updates.phone !== undefined) {
+      const raw = typeof updates.phone === 'string' ? updates.phone.trim() : updates.phone;
+      if (!raw && raw !== 0) {
+        payload.phone = null;
+      } else {
+        const phoneStr = String(raw);
+        if (phoneStr.length > 50) {
+          const err = new Error('Phone number must not exceed 50 characters');
+          err.status = 400;
+          throw err;
+        }
+        if (!/^[0-9\s\+\-\(\)]+$/.test(phoneStr)) {
+          const err = new Error('Phone number contains invalid characters');
+          err.status = 400;
+          throw err;
+        }
+        payload.phone = phoneStr;
+      }
+    }
+
+    // Personal Email
+    if (updates.personal_email !== undefined) {
+      const raw = typeof updates.personal_email === 'string' ? updates.personal_email.trim() : updates.personal_email;
+      if (!raw) {
+        payload.personal_email = null;
+      } else {
+        const emailStr = String(raw);
+        if (emailStr.length > 150) {
+          const err = new Error('Personal email must not exceed 150 characters');
+          err.status = 400;
+          throw err;
+        }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailStr)) {
+          const err = new Error('Invalid personal email format');
+          err.status = 400;
+          throw err;
+        }
+        payload.personal_email = emailStr;
+      }
+    }
+
+    // Address
+    if (updates.address !== undefined) {
+      const raw = typeof updates.address === 'string' ? updates.address.trim() : updates.address;
+      if (!raw) {
+        payload.address = null;
+      } else {
+        const addressStr = String(raw);
+        if (addressStr.length > 300) {
+          const err = new Error('Address must not exceed 300 characters');
+          err.status = 400;
+          throw err;
+        }
+        payload.address = addressStr;
+      }
+    }
+
+    // DOB (Date of Birth) - stored as YYYY-MM-DD
+    if (updates.dob !== undefined) {
+      const raw = typeof updates.dob === 'string' ? updates.dob.trim() : updates.dob;
+      if (!raw) {
+        payload.dob = null;
+      } else {
+        payload.dob = raw.split('T')[0];
+      }
+    }
+
+    // NIC / National ID
+    if (updates.nic !== undefined) {
+      const raw = typeof updates.nic === 'string' ? updates.nic.trim() : updates.nic;
+      if (!raw) {
+        payload.nic = null;
+      } else {
+        payload.nic = raw;
+      }
+    }
+
+    // Name, Emp Code, Department, Designation, Gender, Joined Date (Admin or full access)
+    const isAdmin = !requestingUser || requestingUser.role === 'Admin';
+    if (isAdmin) {
+      if (updates.name !== undefined && updates.name.trim() !== '') {
+        payload.name = updates.name.trim();
+        payload.initials = getInitials(updates.name.trim());
+      }
+      if (updates.emp_code !== undefined) {
+        payload.emp_code = updates.emp_code ? updates.emp_code.trim() : null;
+      }
+      if (updates.department !== undefined) {
+        payload.department = updates.department ? updates.department.trim() : null;
+      }
+      if (updates.designation !== undefined) {
+        payload.designation = updates.designation ? updates.designation.trim() : null;
+      }
+      if (updates.card_designation !== undefined) {
+        payload.card_designation = updates.card_designation ? updates.card_designation.trim() : null;
+      }
+      if (updates.gender !== undefined) {
+        const raw = typeof updates.gender === 'string' ? updates.gender.trim() : updates.gender;
+        payload.gender = raw || null;
+      }
+      if (updates.joined_date !== undefined || updates.date_joined !== undefined) {
+        const jd = updates.date_joined || updates.joined_date;
+        payload.date_joined = jd ? jd.trim().split('T')[0] : null;
+      }
+    }
+
+    if (Object.keys(payload).length > 0) {
+      const { error: updateError } = await supabase
+        .from('users')
+        .update(payload)
+        .eq('id', resolvedId);
+
+      if (updateError) {
+        throw updateError;
+      }
+      await this.logActivity(resolvedId, 'profile_updated', 'Updated profile information (DOB/contact/personal details)');
+    }
+
+    return await this.getMyProfile(resolvedId);
+  },
+
+  async getUpcomingBirthdays() {
+    const { data: users, error } = await supabase
+      .from('users')
+      .select('id, name, initials, dob, photo_url, department, designation')
+      .not('dob', 'is', null);
+
+    if (error) throw error;
+    return users || [];
+  },
+
+  async getAdmins() {
+    try {
+      const { data: admins, error } = await supabase
+        .from('users')
+        .select('id, name, phone, email, personal_email, designation, role')
+        .eq('role', 'Admin');
+
+      if (error) {
+        console.warn('Error fetching admins in getAdmins:', error.message);
+        return [];
+      }
+      return admins || [];
+    } catch (err) {
+      console.warn('getAdmins exception:', err.message);
+      return [];
+    }
+  },
+
+  async getActivities(userId) {
+    if (!userId) throw new Error('user_id is required');
+    const { data, error } = await supabase
+      .from('employee_activity')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(20);
+
+    if (error) {
+      console.warn('Activities fetch warning:', error.message);
+      return [];
+    }
+    return data || [];
+  },
+
+  async logActivity(userId, activityType, description) {
+    if (!userId) return;
+    try {
+      await supabase
+        .from('employee_activity')
+        .insert([{
+          user_id: userId,
+          activity_type: activityType,
+          description: description
+        }]);
+    } catch (e) {
+      console.warn('Log activity error:', e.message);
+    }
+  },
+
+  async getDocuments(userId, requestingUser) {
+    if (!userId) throw new Error('user_id is required');
+    const isOwnerOrAdmin = requestingUser?.role === 'Admin' || requestingUser?.id === userId;
+    if (!isOwnerOrAdmin) {
+      const err = new Error('Access denied');
+      err.status = 403;
+      throw err;
+    }
+
+    const { data, error } = await supabase
+      .from('employee_documents')
+      .select('*')
+      .eq('user_id', userId)
+      .order('uploaded_at', { ascending: false });
+
+    if (error) {
+      console.warn('Documents fetch warning:', error.message);
+      return [];
+    }
+    return data || [];
+  },
+
+  async addDocument(userId, docName, fileUrl, filePath, fileSize, fileType) {
+    const { data, error } = await supabase
+      .from('employee_documents')
+      .insert([{
+        user_id: userId,
+        document_name: docName,
+        file_url: fileUrl,
+        file_path: filePath,
+        file_size: fileSize,
+        file_type: fileType
+      }])
+      .select();
+
+    if (error) throw error;
+
+    await this.logActivity(userId, 'document_uploaded', `Uploaded document "${docName}"`);
+    return data?.[0];
+  },
+
+  async deleteDocument(docId, requestingUser) {
+    const { data: docs, error: fetchErr } = await supabase
+      .from('employee_documents')
+      .select('*')
+      .eq('id', docId);
+
+    if (fetchErr || !docs || docs.length === 0) {
+      const err = new Error('Document not found');
+      err.status = 404;
+      throw err;
+    }
+
+    const doc = docs[0];
+    const isOwnerOrAdmin = requestingUser?.role === 'Admin' || requestingUser?.id === doc.user_id;
+    if (!isOwnerOrAdmin) {
+      const err = new Error('Access denied');
+      err.status = 403;
+      throw err;
+    }
+
+    if (doc.file_path) {
+      try {
+        await supabase.storage.from('employee-documents').remove([doc.file_path]);
+      } catch (e) {
+        console.warn('Storage delete warning:', e.message);
+      }
+    }
+
+    await supabase.from('employee_documents').delete().eq('id', docId);
+    await this.logActivity(doc.user_id, 'document_uploaded', `Deleted document "${doc.document_name}"`);
+    return { message: 'Document deleted successfully' };
+  },
+
+  async updatePhotoUrl(targetUserId, photoUrl, requestingUser) {
+    const isOwnerOrAdmin = requestingUser?.role === 'Admin' || requestingUser?.id === targetUserId;
+    if (!isOwnerOrAdmin) {
+      const err = new Error('Access denied');
+      err.status = 403;
+      throw err;
+    }
+
+    const { data: users } = await supabase.from('users').select('photo_url').eq('id', targetUserId);
+    const oldUrl = users?.[0]?.photo_url;
+
+    if (oldUrl && oldUrl !== photoUrl && oldUrl.includes('profile-photos/')) {
+      const oldPath = oldUrl.split('profile-photos/')[1];
+      if (oldPath) {
+        try {
+          await supabase.storage.from('profile-photos').remove([oldPath]);
+        } catch (e) {
+          console.warn('Old photo remove warning:', e.message);
+        }
+      }
+    }
+
+    const { error: updateErr } = await supabase
+      .from('users')
+      .update({ photo_url: photoUrl })
+      .eq('id', targetUserId);
+
+    if (updateErr) throw updateErr;
+
+    await this.logActivity(targetUserId, 'photo_changed', 'Updated profile picture');
+    return { photo_url: photoUrl };
+  },
+
+  async deletePhotoUrl(targetUserId, requestingUser) {
+    const isOwnerOrAdmin = requestingUser?.role === 'Admin' || requestingUser?.id === targetUserId;
+    if (!isOwnerOrAdmin) {
+      const err = new Error('Access denied');
+      err.status = 403;
+      throw err;
+    }
+
+    const { data: users } = await supabase.from('users').select('photo_url').eq('id', targetUserId);
+    const oldUrl = users?.[0]?.photo_url;
+
+    if (oldUrl && oldUrl.includes('profile-photos/')) {
+      const oldPath = oldUrl.split('profile-photos/')[1];
+      if (oldPath) {
+        try {
+          await supabase.storage.from('profile-photos').remove([oldPath]);
+        } catch (e) {
+          console.warn('Old photo remove warning:', e.message);
+        }
+      }
+    }
+
+    await supabase.from('users').update({ photo_url: null }).eq('id', targetUserId);
+    await this.logActivity(targetUserId, 'photo_changed', 'Removed profile picture');
+    return { message: 'Photo removed successfully' };
+  }
+};
+
 module.exports = {
   authService,
   dashboardService,
   adminService,
+  profileService,
   JWT_SECRET
 };
+
