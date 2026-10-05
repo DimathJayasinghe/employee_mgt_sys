@@ -1043,7 +1043,7 @@ const adminService = {
         id, user_id, leave_type, start_date, end_date, days_count, 
         day_of_week, start_time, end_time, special_session, is_recurring, 
         status, reason, created_at,
-        users (id, name, email, department, initials)
+        users (id, name, email, department, initials, photo_url)
       `)
       .eq('status', 'Pending')
       .order('created_at', { ascending: false });
@@ -1054,10 +1054,11 @@ const adminService = {
         id, user_id, leave_type, start_date, end_date, days_count, 
         day_of_week, start_time, end_time, special_session, is_recurring, 
         status, reason, created_at,
-        users (id, name, email, department, initials)
+        users (id, name, email, department, initials, photo_url)
       `)
       .eq('status', 'Approved')
       .gt('start_date', todayStr)
+      .order('start_date', { ascending: true });
       .order('start_date', { ascending: true });
 
     let workingCount = 0;
@@ -1269,6 +1270,9 @@ const adminService = {
         id: r.id,
         user_id: r.user_id,
         employee_name: r.users?.name || 'Employee',
+        initials: r.users?.initials || (r.users?.name ? getInitials(r.users.name) : 'EP'),
+        photo_url: r.users?.photo_url || null,
+        department: r.users?.department || 'IT',
         leave_type: r.leave_type,
         from_date: r.start_date,
         to_date: r.end_date,

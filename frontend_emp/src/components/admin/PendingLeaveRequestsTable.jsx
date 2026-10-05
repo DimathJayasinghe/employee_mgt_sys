@@ -95,7 +95,19 @@ export default function PendingLeaveRequestsTable({ requests = [], currentUser, 
                     className={`${isExceeded ? 'bg-red-50/70 hover:bg-red-100/60 border-l-4 border-l-red-500' : 'hover:bg-slate-50/60'} transition-colors`}
                   >
                     <td className="px-6 py-4 font-bold text-slate-900">
-                      <div>{req.employee_name}</div>
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-900 font-bold text-xs flex items-center justify-center border border-blue-200 shrink-0 overflow-hidden shadow-2xs">
+                          {req.photo_url ? (
+                            <img src={req.photo_url} alt={req.employee_name} className="w-full h-full object-cover" />
+                          ) : (
+                            req.initials || (req.employee_name ? req.employee_name.slice(0, 2).toUpperCase() : 'EP')
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="truncate text-slate-900 font-extrabold">{req.employee_name}</div>
+                          {req.department && <div className="text-[10px] text-slate-400 font-medium truncate">{req.department}</div>}
+                        </div>
+                      </div>
                       {isExceeded && (
                         <div className="mt-1">
                           <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md inline-flex items-center gap-1 shadow-2xs ${
