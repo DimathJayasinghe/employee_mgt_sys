@@ -1059,7 +1059,6 @@ const adminService = {
       .eq('status', 'Approved')
       .gt('start_date', todayStr)
       .order('start_date', { ascending: true });
-      .order('start_date', { ascending: true });
 
     let workingCount = 0;
     let onLeaveCount = 0;
