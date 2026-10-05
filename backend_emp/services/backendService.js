@@ -632,7 +632,7 @@ const dashboardService = {
     // 6. Fetch Team Workforce Status Today (Working & On Leave)
     const { data: allUsers } = await supabase
       .from('users')
-      .select('id, name, initials, department, status, role')
+      .select('id, name, initials, department, status, role, photo_url')
       .order('name', { ascending: true });
 
     const { data: todayWorks } = await supabase
@@ -689,6 +689,7 @@ const dashboardService = {
         id: u.id,
         name: u.name,
         initials: u.initials || getInitials(u.name),
+        photo_url: u.photo_url || null,
         department: u.department || 'General',
         status: displayStatus,
         today_work: todayWorkDesc,
@@ -1124,6 +1125,7 @@ const adminService = {
         id: u.id,
         name: u.name,
         initials: u.initials || getInitials(u.name),
+        photo_url: u.photo_url || null,
         department: u.department || 'IT',
         status: displayStatus,
         today_work: todayWork,

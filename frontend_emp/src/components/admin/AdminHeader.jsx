@@ -124,8 +124,12 @@ export default function AdminHeader({ title, adminUser, currentViewMode, onToggl
             onClick={() => setIsMenuOpen(!isMenuOpen)}
             className="flex items-center gap-1.5 cursor-pointer pl-1 hover:opacity-85 transition-opacity"
           >
-            <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-900 font-bold text-xs flex items-center justify-center border border-blue-200 shadow-xs">
-              {adminUser?.initials || 'AD'}
+            <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-900 font-bold text-xs flex items-center justify-center border border-blue-200 shadow-xs overflow-hidden">
+              {adminUser?.photo_url ? (
+                <img src={adminUser.photo_url} alt={adminUser?.name || 'Admin'} className="w-full h-full object-cover" />
+              ) : (
+                adminUser?.initials || 'AD'
+              )}
             </div>
             <ChevronDown className="w-3.5 h-3.5 text-slate-400 hidden sm:block" />
           </div>

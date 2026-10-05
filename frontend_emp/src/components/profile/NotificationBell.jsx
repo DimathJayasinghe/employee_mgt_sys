@@ -120,8 +120,12 @@ export default function NotificationBell({ onSelectEmployee }) {
                     className="p-2.5 rounded-xl border border-slate-100 bg-slate-50/60 hover:bg-pink-50/60 hover:border-pink-200 transition-all cursor-pointer flex items-center justify-between"
                   >
                     <div className="flex items-center gap-2.5">
-                      <div className="w-7 h-7 rounded-full bg-pink-100 text-pink-700 font-bold text-[11px] flex items-center justify-center border border-pink-200 shrink-0">
-                        {emp.initials || (emp.name ? emp.name.slice(0, 2).toUpperCase() : 'EP')}
+                      <div className="w-7 h-7 rounded-full bg-pink-100 text-pink-700 font-bold text-[11px] flex items-center justify-center border border-pink-200 shrink-0 overflow-hidden">
+                        {emp.photo_url ? (
+                          <img src={emp.photo_url} alt={emp.name} className="w-full h-full object-cover" />
+                        ) : (
+                          emp.initials || (emp.name ? emp.name.slice(0, 2).toUpperCase() : 'EP')
+                        )}
                       </div>
                       <div>
                         <h5 className="text-xs font-bold text-slate-800 leading-tight">{emp.name}</h5>
