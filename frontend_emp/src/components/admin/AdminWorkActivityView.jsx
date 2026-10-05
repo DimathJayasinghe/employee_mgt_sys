@@ -3,10 +3,10 @@ import API from '../../api';
 import { 
   Search, Calendar, Briefcase, User, Filter, ArrowLeft, 
   Clock, ChevronRight, FileText, CheckCircle2, UserCheck, 
-  Building2, Sparkles 
+  Building2, Sparkles, Phone, ExternalLink 
 } from 'lucide-react';
 
-export default function AdminWorkActivityView() {
+export default function AdminWorkActivityView({ onSelectEmployee }) {
   const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -45,13 +45,42 @@ export default function AdminWorkActivityView() {
     return { cleanText: cleanText || 'No work details provided.', clientTags };
   };
 
+  const calculateYearsOfService = (dateJoinedStr) => {
+    if (!dateJoinedStr) return null;
+    const joined = new Date(dateJoinedStr);
+    if (isNaN(joined.getTime())) return null;
+    const now = new Date();
+    const diffMs = now - joined;
+    const years = diffMs / (1000 * 60 * 60 * 24 * 365.25);
+    if (years < 0) return null;
+    if (years < 1) {
+      const months = Math.floor(years * 12);
+      return `${months} ${months === 1 ? 'month' : 'months'}`;
+    }
+    return `${years.toFixed(1)} yrs`;
+  };
+
+  const formatBirthday = (dobStr) => {
+    if (!dobStr) return null;
+    const d = new Date(dobStr);
+    if (isNaN(d.getTime())) return dobStr;
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
+
   // Extract unique employees with summary info
   const employeeMap = {};
   (activities || []).forEach((act) => {
     const empId = act.user_id || act.employee_name || act.name || 'unknown';
     const empName = act.employee_name || act.name || 'Employee';
     const initials = act.initials || empName.slice(0, 2).toUpperCase();
+    const photoUrl = act.photo_url || null;
     const dept = act.department || 'General';
+    const designation = act.designation || null;
+    const dateJoined = act.date_joined || null;
+    const dob = act.dob || null;
+    const phone = act.phone || null;
+    const email = act.email || null;
+    const empCode = act.emp_code || null;
     const entryDate = act.work_date || act.entry_date || '';
 
     if (!employeeMap[empId]) {
@@ -59,11 +88,26 @@ export default function AdminWorkActivityView() {
         id: empId,
         name: empName,
         initials: initials,
+        photo_url: photoUrl,
         department: dept,
+        designation: designation,
+        date_joined: dateJoined,
+        dob: dob,
+        phone: phone,
+        email: email,
+        emp_code: empCode,
         logs: [],
         latestDate: entryDate
       };
+    } else {
+      if (photoUrl && !employeeMap[empId].photo_url) employeeMap[empId].photo_url = photoUrl;
+      if (designation && !employeeMap[empId].designation) employeeMap[empId].designation = designation;
+      if (dateJoined && !employeeMap[empId].date_joined) employeeMap[empId].date_joined = dateJoined;
+      if (dob && !employeeMap[empId].dob) employeeMap[empId].dob = dob;
+      if (phone && !employeeMap[empId].phone) employeeMap[empId].phone = phone;
+      if (email && !employeeMap[empId].email) employeeMap[empId].email = email;
     }
+
     employeeMap[empId].logs.push(act);
     if (entryDate > employeeMap[empId].latestDate) {
       employeeMap[empId].latestDate = entryDate;
@@ -77,7 +121,8 @@ export default function AdminWorkActivityView() {
     const term = searchTerm.trim().toLowerCase();
     return (
       emp.name.toLowerCase().includes(term) ||
-      emp.department.toLowerCase().includes(term)
+      emp.department.toLowerCase().includes(term) ||
+      (emp.designation && emp.designation.toLowerCase().includes(term))
     );
   });
 
@@ -217,35 +262,96 @@ export default function AdminWorkActivityView() {
         </div>
       </div>
 
-      {/* Selected Employee Dedicated Banner (When an employee is clicked/selected) */}
+      {/* Selected Employee Profile Banner */}
       {activeEmployee && (
-        <div className="bg-linear-to-r from-[#022851] via-[#033975] to-[#044a96] rounded-2xl p-5 text-white shadow-md flex flex-wrap items-center justify-between gap-4 animate-in fade-in duration-150">
-          <div className="flex items-center gap-4">
-            <div className="w-13 h-13 rounded-2xl bg-white/10 text-white font-black text-lg flex items-center justify-center border border-white/20 shadow-inner">
-              {activeEmployee.initials}
+        <div className="bg-linear-to-r from-[#022851] via-[#033975] to-[#044a96] rounded-2xl p-5 text-white shadow-md flex flex-col md:flex-row md:items-center justify-between gap-5 animate-in fade-in duration-150">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+            {/* Avatar Photo */}
+            <div className="w-16 h-16 rounded-2xl bg-white/10 text-white font-black text-xl flex items-center justify-center border-2 border-white/20 shadow-inner shrink-0 overflow-hidden">
+              {activeEmployee.photo_url ? (
+                <img src={activeEmployee.photo_url} alt={activeEmployee.name} className="w-full h-full object-cover" />
+              ) : (
+                activeEmployee.initials
+              )}
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-xl font-extrabold text-white tracking-tight">{activeEmployee.name}</h3>
+
+            <div className="space-y-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="text-xl font-black text-white tracking-tight">{activeEmployee.name}</h3>
+                {activeEmployee.emp_code && (
+                  <span className="bg-blue-400/20 text-blue-200 text-[10px] font-extrabold px-2 py-0.5 rounded-md border border-blue-300/30">
+                    {activeEmployee.emp_code}
+                  </span>
+                )}
                 <span className="bg-blue-400/30 text-blue-100 text-xs font-bold px-2.5 py-0.5 rounded-full border border-blue-300/30">
                   {activeEmployee.department}
                 </span>
               </div>
-              <p className="text-xs text-blue-200/90 font-medium mt-1 flex items-center gap-3">
-                <span>Total Entries: <strong className="text-white">{activeEmployee.logs.length}</strong></span>
+
+              {activeEmployee.designation && (
+                <p className="text-xs font-semibold text-blue-200 flex items-center gap-1.5">
+                  <Briefcase className="w-3.5 h-3.5 text-blue-300" />
+                  <span>{activeEmployee.designation}</span>
+                </p>
+              )}
+
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-blue-200/90 font-medium pt-1">
+                {activeEmployee.date_joined && (
+                  <span className="flex items-center gap-1">
+                    <Calendar className="w-3 h-3 text-blue-300" />
+                    <span>Joined: <strong>{activeEmployee.date_joined}</strong></span>
+                    {calculateYearsOfService(activeEmployee.date_joined) && (
+                      <span className="bg-white/10 text-white text-[10px] px-1.5 py-0.2 rounded font-bold ml-0.5">
+                        {calculateYearsOfService(activeEmployee.date_joined)} Service
+                      </span>
+                    )}
+                  </span>
+                )}
+
+                {activeEmployee.dob && (
+                  <span className="flex items-center gap-1">
+                    <Sparkles className="w-3 h-3 text-pink-300" />
+                    <span>Birthday: <strong>{formatBirthday(activeEmployee.dob)}</strong></span>
+                  </span>
+                )}
+
+                {(activeEmployee.phone || activeEmployee.email) && (
+                  <span className="flex items-center gap-1">
+                    <Phone className="w-3 h-3 text-blue-300" />
+                    <span>{activeEmployee.phone || activeEmployee.email}</span>
+                  </span>
+                )}
+              </div>
+
+              <div className="text-[11px] text-blue-200/80 font-medium pt-0.5 flex items-center gap-3">
+                <span>Total Work Submissions: <strong className="text-white font-bold">{activeEmployee.logs.length}</strong></span>
                 <span>•</span>
-                <span>Latest Entry: <strong className="text-white">{activeEmployee.latestDate || 'N/A'}</strong></span>
-              </p>
+                <span>Latest Log: <strong className="text-white font-bold">{activeEmployee.latestDate || 'N/A'}</strong></span>
+              </div>
             </div>
           </div>
 
-          <button
-            onClick={() => setSelectedEmpId('All')}
-            className="bg-white/10 hover:bg-white/20 active:scale-[0.98] text-white text-xs font-bold px-3.5 py-2 rounded-xl border border-white/20 flex items-center gap-2 transition-all cursor-pointer"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Show All Employees</span>
-          </button>
+          <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto">
+            {onSelectEmployee && (
+              <button
+                type="button"
+                onClick={() => onSelectEmployee({ id: activeEmployee.id, name: activeEmployee.name, photo_url: activeEmployee.photo_url, department: activeEmployee.department })}
+                className="bg-white text-blue-900 hover:bg-blue-50 active:scale-[0.98] text-xs font-black px-3.5 py-2.5 rounded-xl shadow-xs flex items-center gap-2 transition-all cursor-pointer"
+              >
+                <User className="w-3.5 h-3.5 text-blue-700" />
+                <span>View Full Profile</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setSelectedEmpId('All')}
+              className="bg-white/10 hover:bg-white/20 active:scale-[0.98] text-white text-xs font-bold px-3.5 py-2.5 rounded-xl border border-white/20 flex items-center gap-2 transition-all cursor-pointer"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Show All</span>
+            </button>
+          </div>
         </div>
       )}
 
@@ -271,8 +377,12 @@ export default function AdminWorkActivityView() {
                 className="bg-white hover:bg-blue-50/60 rounded-xl p-3 border border-slate-200/80 hover:border-blue-300 shadow-2xs hover:shadow-xs transition-all text-left cursor-pointer group flex flex-col justify-between"
               >
                 <div className="flex items-center justify-between gap-1 mb-2">
-                  <div className="w-7 h-7 rounded-lg bg-blue-100/80 text-blue-800 font-bold text-[11px] flex items-center justify-center border border-blue-200">
-                    {emp.initials}
+                  <div className="w-8 h-8 rounded-lg bg-blue-100/80 text-blue-800 font-bold text-[11px] flex items-center justify-center border border-blue-200 shrink-0 overflow-hidden">
+                    {emp.photo_url ? (
+                      <img src={emp.photo_url} alt={emp.name} className="w-full h-full object-cover" />
+                    ) : (
+                      emp.initials
+                    )}
                   </div>
                   <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
                     {emp.logs.length} logs
@@ -282,7 +392,7 @@ export default function AdminWorkActivityView() {
                   {emp.name}
                 </h4>
                 <p className="text-[10px] text-slate-400 font-medium truncate mt-0.5">
-                  {emp.department}
+                  {emp.designation || emp.department}
                 </p>
               </button>
             ))}

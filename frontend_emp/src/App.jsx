@@ -360,7 +360,7 @@ export default function App() {
               </div>
             )}
 
-            {activeTab === 'work-activity' && <AdminWorkActivityView />}
+            {activeTab === 'work-activity' && <AdminWorkActivityView onSelectEmployee={handleSelectEmployee} />}
 
             {activeTab === 'client-analytics' && <AdminClientAnalyticsView />}
 

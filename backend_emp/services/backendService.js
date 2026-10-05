@@ -1492,7 +1492,7 @@ const adminService = {
       .from('daily_work_entries')
       .select(`
         id, user_id, entry_date, work_description, created_at, updated_at,
-        users (id, name, initials, department, photo_url)
+        users (id, name, initials, department, photo_url, designation, card_designation, dob, date_joined, phone, personal_email, email, emp_code)
       `)
       .order('entry_date', { ascending: false })
       .order('created_at', { ascending: false });
@@ -1506,6 +1506,12 @@ const adminService = {
       initials: e.users?.initials || 'EP',
       photo_url: e.users?.photo_url || null,
       department: e.users?.department || 'IT',
+      designation: e.users?.designation || e.users?.card_designation || null,
+      date_joined: e.users?.date_joined || null,
+      dob: e.users?.dob || null,
+      phone: e.users?.phone || null,
+      email: e.users?.email || e.users?.personal_email || null,
+      emp_code: e.users?.emp_code || null,
       work_date: e.entry_date,
       work_description: e.work_description || 'No description provided.',
       created_at: e.created_at,
