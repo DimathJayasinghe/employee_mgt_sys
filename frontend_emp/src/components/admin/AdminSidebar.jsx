@@ -9,8 +9,10 @@ import {
   Calendar, 
   Settings, 
   LogOut, 
-  X
+  X,
+  Database
 } from 'lucide-react';
+import API from '../../api';
 
 export default function AdminSidebar({ activeTab, setActiveTab, adminUser, onLogout, isMobileOpen, setIsMobileOpen }) {
   const handleNavClick = (tab) => {
@@ -146,17 +148,46 @@ export default function AdminSidebar({ activeTab, setActiveTab, adminUser, onLog
           {/* Section 4: SYSTEM */}
           <div>
             <p className="text-[11px] font-bold tracking-wider text-slate-400 uppercase px-3 mb-2">System</p>
-            <button
-              onClick={() => handleNavClick('settings')}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                activeTab === 'settings'
-                  ? 'bg-[#152a4a] text-white shadow-sm border border-slate-700/60'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-[#0c1f3a]'
-              }`}
-            >
-              <Settings className="w-4 h-4" />
-              <span>Settings</span>
-            </button>
+            <nav className="space-y-1">
+              <button
+                onClick={async () => {
+                  try {
+                    const res = await API.get('/admin/backup');
+                    const dateStr = new Date().toISOString().split('T')[0];
+                    const filename = `supabase_database_backup_${dateStr}.json`;
+                    const blob = new Blob([JSON.stringify(res.data, null, 2)], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = filename;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+                    alert('✅ Supabase database backup downloaded to your device!');
+                  } catch (err) {
+                    alert('Failed to generate backup: ' + (err.response?.data?.error || err.message));
+                  }
+                }}
+                className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all text-slate-400 hover:text-white hover:bg-[#0c1f3a] cursor-pointer"
+                title="Download Supabase database backup JSON file"
+              >
+                <Database className="w-4 h-4 text-blue-400" />
+                <span>Database Backup</span>
+              </button>
+
+              <button
+                onClick={() => handleNavClick('settings')}
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                  activeTab === 'settings'
+                    ? 'bg-[#152a4a] text-white shadow-sm border border-slate-700/60'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-[#0c1f3a]'
+                }`}
+              >
+                <Settings className="w-4 h-4" />
+                <span>Settings</span>
+              </button>
+            </nav>
           </div>
         </div>
 

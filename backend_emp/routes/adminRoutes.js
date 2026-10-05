@@ -76,4 +76,20 @@ router.post('/leave/reject', async (req, res) => {
   }
 });
 
+// GET /api/admin/backup - Downloads complete Supabase database backup JSON
+router.get('/backup', async (req, res) => {
+  try {
+    const backupData = await adminService.generateFullBackup();
+    const dateStr = new Date().toISOString().split('T')[0];
+    const filename = `supabase_database_backup_${dateStr}.json`;
+
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    return res.json(backupData);
+  } catch (err) {
+    console.error('Admin database backup error:', err.message);
+    return res.status(500).json({ error: err.message || 'Failed to generate database backup' });
+  }
+});
+
 module.exports = router;

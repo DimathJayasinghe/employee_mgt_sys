@@ -1814,6 +1814,42 @@ const adminService = {
     })();
 
     return { message: 'Leave rejected successfully' };
+  },
+
+  async generateFullBackup() {
+    const tables = ['users', 'leave_requests', 'daily_work_entries', 'leave_balances'];
+    const backup = {
+      manifest: {
+        exported_at: new Date().toISOString(),
+        tables_count: tables.length,
+        source: 'Supabase Database',
+        system: 'P W Holdings Employee Management System'
+      },
+      tables: {}
+    };
+
+    for (const table of tables) {
+      try {
+        const { data, error } = await supabase.from(table).select('*');
+        if (error) {
+          backup.tables[table] = { status: 'error', error: error.message, data: [] };
+        } else {
+          const tableData = data || [];
+          if (table === 'users') {
+            tableData.forEach(u => delete u.password);
+          }
+          backup.tables[table] = {
+            status: 'success',
+            record_count: tableData.length,
+            data: tableData
+          };
+        }
+      } catch (err) {
+        backup.tables[table] = { status: 'error', error: err.message, data: [] };
+      }
+    }
+
+    return backup;
   }
 };
 
