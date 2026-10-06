@@ -6,6 +6,7 @@ require('dotenv').config({ path: path.resolve(__dirname, '.env') });
 
 const { initDatabase } = require('./initDb');
 const { initBirthdayCron } = require('./services/birthdayReminder');
+const { initBackupCron } = require('./services/backupScheduler');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const authRoutes = require('./routes/authRoutes');
@@ -19,9 +20,10 @@ app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
-// Initialize Database connection & Birthday Cron
+// Initialize Database connection & Background Crons
 initDatabase();
 initBirthdayCron();
+initBackupCron();
 
 // API Routes
 app.use('/api', dashboardRoutes);

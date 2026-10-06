@@ -226,7 +226,7 @@ function getLeaveCancellationStatus(leave) {
 }
 
 // Unified Email Dispatcher supporting Resend API & SMTP
-async function sendSystemEmail({ to, cc, subject, html }) {
+async function sendSystemEmail({ to, cc, subject, html, attachments }) {
   const resendApiKey = process.env.RESEND_API_KEY || (process.env.EMAIL_PASS?.startsWith('re_') ? process.env.EMAIL_PASS : null);
   const fromEmail = process.env.EMAIL_FROM || 'P W Holdings System <hr@mail.pwholdings.lk>';
 
@@ -241,6 +241,14 @@ async function sendSystemEmail({ to, cc, subject, html }) {
       };
       if (cc && (Array.isArray(cc) ? cc.length > 0 : Boolean(cc))) {
         payload.cc = Array.isArray(cc) ? cc : [cc];
+      }
+      if (attachments && Array.isArray(attachments) && attachments.length > 0) {
+        payload.attachments = attachments.map(att => ({
+          filename: att.filename,
+          content: Buffer.isBuffer(att.content)
+            ? att.content.toString('base64')
+            : Buffer.from(typeof att.content === 'string' ? att.content : JSON.stringify(att.content)).toString('base64')
+        }));
       }
 
       const res = await fetch('https://api.resend.com/emails', {
@@ -283,7 +291,8 @@ async function sendSystemEmail({ to, cc, subject, html }) {
         to,
         cc,
         subject,
-        html
+        html,
+        attachments
       });
       console.log(`✅ [SMTP] Email sent to ${to}. MessageID: ${info.messageId}`);
       return { success: true, id: info.messageId };
@@ -2243,6 +2252,7 @@ module.exports = {
   dashboardService,
   adminService,
   profileService,
+  sendSystemEmail,
   JWT_SECRET
 };
 

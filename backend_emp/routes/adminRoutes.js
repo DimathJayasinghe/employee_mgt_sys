@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { adminService } = require('../services/backendService');
+const { sendDailyBackupEmail } = require('../services/backupScheduler');
 const { authenticateToken, requireAdmin } = require('../middleware/authMiddleware');
 
 router.use(authenticateToken);
@@ -89,6 +90,22 @@ router.get('/backup', async (req, res) => {
   } catch (err) {
     console.error('Admin database backup error:', err.message);
     return res.status(500).json({ error: err.message || 'Failed to generate database backup' });
+  }
+});
+
+// POST /api/admin/send-backup-email - Manually trigger database backup email dispatch
+router.post('/send-backup-email', async (req, res) => {
+  try {
+    const { to, cc } = req.body || {};
+    const result = await sendDailyBackupEmail({ to, cc, isManual: true });
+    if (result.success) {
+      return res.json({ message: 'Backup email sent successfully', details: result });
+    } else {
+      return res.status(500).json({ error: result.reason || result.error || 'Failed to send backup email' });
+    }
+  } catch (err) {
+    console.error('Admin send backup email error:', err.message);
+    return res.status(500).json({ error: err.message || 'Failed to send backup email' });
   }
 });
 
