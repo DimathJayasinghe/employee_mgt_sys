@@ -26,6 +26,7 @@ import TodaysWorkforceTable from './components/admin/TodaysWorkforceTable';
 import TodaysLeaveCards from './components/admin/TodaysLeaveCards';
 import HalfDayAndStudyLeave from './components/admin/HalfDayAndStudyLeave';
 import PendingLeaveRequestsTable from './components/admin/PendingLeaveRequestsTable';
+import AllLeavesTable from './components/admin/AllLeavesTable';
 import AdminAllEmployeesView from './components/admin/AdminAllEmployeesView';
 import AdminWorkActivityView from './components/admin/AdminWorkActivityView';
 import AdminClientAnalyticsView from './components/admin/AdminClientAnalyticsView';
@@ -86,6 +87,7 @@ export default function App() {
   const [specialLeaveEmployees, setSpecialLeaveEmployees] = useState([]);
   const [pendingLeaveRequests, setPendingLeaveRequests] = useState([]);
   const [upcomingLeaves, setUpcomingLeaves] = useState([]);
+  const [allLeaves, setAllLeaves] = useState([]);
   const [allEmployees, setAllEmployees] = useState([]);
 
   // On mount: if a saved session exists, restore the correct view
@@ -125,6 +127,7 @@ export default function App() {
         if (res.data.specialLeaveEmployees) setSpecialLeaveEmployees(res.data.specialLeaveEmployees);
         if (res.data.pendingLeaveRequests) setPendingLeaveRequests(res.data.pendingLeaveRequests);
         if (res.data.upcomingLeaves) setUpcomingLeaves(res.data.upcomingLeaves);
+        if (res.data.allLeaves) setAllLeaves(res.data.allLeaves);
         if (res.data.allEmployees) setAllEmployees(res.data.allEmployees);
       }
     } catch (err) {
@@ -348,7 +351,7 @@ export default function App() {
                 <div className="flex items-center justify-between">
                   <div>
                     <h2 className="text-xl font-bold text-slate-900">Leave Requests Management</h2>
-                    <p className="text-xs text-slate-500 mt-0.5">Review, approve, or reject employee leave applications.</p>
+                    <p className="text-xs text-slate-500 mt-0.5">Review, approve, or reject employee leave applications, and inspect complete leave history.</p>
                   </div>
                 </div>
                 <PendingLeaveRequestsTable
@@ -357,6 +360,7 @@ export default function App() {
                   onApprove={handleApproveLeave}
                   onReject={handleRejectLeave}
                 />
+                <AllLeavesTable leaves={allLeaves} />
               </div>
             )}
 

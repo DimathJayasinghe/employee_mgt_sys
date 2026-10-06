@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { adminService } = require('../services/backendService');
-const { sendDailyBackupEmail } = require('../services/backupScheduler');
+const { sendDailyBackupEmail, sendMonthlyBackupEmail } = require('../services/backupScheduler');
 const { authenticateToken, requireAdmin } = require('../middleware/authMiddleware');
 
 router.use(authenticateToken);

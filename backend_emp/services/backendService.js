@@ -1070,6 +1070,18 @@ const adminService = {
       .gt('start_date', todayStr)
       .order('start_date', { ascending: true });
 
+    const { data: allLeavesRaw } = await supabase
+      .from('leave_requests')
+      .select(`
+        id, user_id, leave_type, start_date, end_date, days_count, 
+        day_of_week, start_time, end_time, special_session, is_recurring, 
+        status, reason, created_at,
+        users (id, name, email, department, initials, photo_url)
+      `)
+      .in('status', ['Approved', 'Rejected', 'Cancelled'])
+      .order('created_at', { ascending: false })
+      .limit(300);
+
     let workingCount = 0;
     let onLeaveCount = 0;
     let casualCount = 0;
@@ -1337,6 +1349,37 @@ const adminService = {
                 : `${r.days_count} days (${r.start_date ? r.start_date.split('T')[0] : ''} to ${r.end_date ? r.end_date.split('T')[0] : ''})`)
     }));
 
+    const allLeavesFormatted = (allLeavesRaw || []).map(r => ({
+      id: r.id,
+      user_id: r.user_id,
+      employee_name: r.users?.name || 'Employee',
+      initials: r.users?.initials || (r.users?.name ? getInitials(r.users.name) : 'EP'),
+      photo_url: r.users?.photo_url || null,
+      department: r.users?.department || 'IT',
+      email: r.users?.email || '',
+      leave_type: r.leave_type,
+      from_date: r.start_date ? r.start_date.split('T')[0] : '',
+      to_date: r.end_date ? r.end_date.split('T')[0] : '',
+      days_count: r.days_count,
+      day_of_week: r.day_of_week,
+      start_time: r.start_time,
+      end_time: r.end_time,
+      special_session: r.special_session,
+      is_recurring: r.is_recurring,
+      reason: r.reason,
+      status: r.status,
+      applied_date: r.created_at ? r.created_at.split('T')[0] : '',
+      duration: r.leave_type === 'Special Leave' && r.day_of_week
+        ? formatSpecialDays(r.day_of_week)
+        : (r.leave_type === 'Short Leave' && r.start_time && r.end_time)
+          ? `${formatTime12(r.start_time)} - ${formatTime12(r.end_time)}`
+          : (r.leave_type === 'Half Day' && r.start_time && r.end_time)
+            ? `${r.start_time} - ${r.end_time} (${r.days_count} day)`
+            : (r.start_date && r.end_date && r.start_date.split('T')[0] === r.end_date.split('T')[0]
+                ? `${r.days_count || 1} day (${r.start_date.split('T')[0]})`
+                : `${r.days_count} days (${r.start_date ? r.start_date.split('T')[0] : ''} to ${r.end_date ? r.end_date.split('T')[0] : ''})`)
+    }));
+
     return {
       stats: {
         total_employees: (allUsers || []).length,
@@ -1359,6 +1402,7 @@ const adminService = {
       specialLeaveEmployees,
       pendingLeaveRequests: pendingFormatted,
       upcomingLeaves: upcomingFormatted,
+      allLeaves: allLeavesFormatted,
       allEmployees: (allUsers || []).map(u => {
         const activeLeave = leaveMap[u.id];
         const todayWork = workMap[u.id] || '';
