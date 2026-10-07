@@ -75,12 +75,10 @@ export default function DailyWorkCard({ initialWork, onSaveWork }) {
       {/* Top Label */}
       <div className="flex items-center justify-between">
         <p className="text-[11px] font-bold tracking-wider text-slate-400 uppercase">Daily Work Entry</p>
-        {/*
         <span className="text-[10px] font-extrabold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100 flex items-center gap-1">
           <Building2 className="w-3 h-3 text-blue-600" />
           <span>Zoho Books Sync ({availableClients.length} Live Clients)</span>
         </span>
-        */}
       </div>
 
       {/* Main Heading & Subtitle */}
@@ -91,8 +89,7 @@ export default function DailyWorkCard({ initialWork, onSaveWork }) {
 
       {/* Form */}
       <form onSubmit={handleSubmit} className="space-y-4">
-        {/* TEMPORARILY HIDDEN ZOHO CLIENT SELECTION - UNCOMMENT TO RESTORE IN FUTURE */}
-        {/* 
+        {/* ZOHO CLIENT SELECTION */}
         <div className="bg-slate-50/70 p-4 rounded-xl border border-slate-200/80 space-y-3">
           <div className="flex items-center justify-between">
             <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
@@ -204,7 +201,6 @@ export default function DailyWorkCard({ initialWork, onSaveWork }) {
             )}
           </div>
         </div>
-        */}
 
         {/* Work Description Textarea */}
         <div>

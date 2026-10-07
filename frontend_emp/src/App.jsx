@@ -210,8 +210,8 @@ export default function App() {
   const handleSaveWork = async (newDescription, clients = []) => {
     if (!currentUser?.id) return;
     try {
-      await API.post('/work-entry', { user_id: currentUser.id, work_description: newDescription, clients });
-      setTodayWork(newDescription);
+      const res = await API.post('/work-entry', { user_id: currentUser.id, work_description: newDescription, clients });
+      setTodayWork(res.data?.work_description || newDescription);
     } catch (err) {
       console.error('Failed to save work entry:', err);
     }
