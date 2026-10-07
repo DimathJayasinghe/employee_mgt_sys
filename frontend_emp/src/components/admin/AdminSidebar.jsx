@@ -4,13 +4,16 @@ import {
   LayoutDashboard, 
   Users, 
   Briefcase, 
+  Building2,
   ClipboardList, 
   Calendar, 
   Settings, 
   LogOut, 
   X,
-  User
+  User,
+  Database
 } from 'lucide-react';
+import API from '../../api';
 
 export default function AdminSidebar({ activeTab, setActiveTab, adminUser, onLogout, isMobileOpen, setIsMobileOpen }) {
   const handleNavClick = (tab) => {
@@ -98,6 +101,18 @@ export default function AdminSidebar({ activeTab, setActiveTab, adminUser, onLog
                 <Briefcase className="w-4 h-4" />
                 <span>Work Activity</span>
               </button>
+
+              <button
+                onClick={() => handleNavClick('client-analytics')}
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                  activeTab === 'client-analytics'
+                    ? 'bg-[#152a4a] text-white shadow-sm border border-slate-700/60'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-[#0c1f3a]'
+                }`}
+              >
+                <Building2 className="w-4 h-4" />
+                <span>Client Analytics</span>
+              </button>
             </nav>
           </div>
 
@@ -148,6 +163,33 @@ export default function AdminSidebar({ activeTab, setActiveTab, adminUser, onLog
               </button>
 
               <button
+                onClick={async () => {
+                  try {
+                    const res = await API.get('/admin/backup');
+                    const dateStr = new Date().toISOString().split('T')[0];
+                    const filename = `supabase_database_backup_${dateStr}.json`;
+                    const blob = new Blob([JSON.stringify(res.data, null, 2)], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = filename;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+                    alert('✅ Supabase database backup downloaded to your device!');
+                  } catch (err) {
+                    alert('Failed to generate backup: ' + (err.response?.data?.error || err.message));
+                  }
+                }}
+                className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all text-slate-400 hover:text-white hover:bg-[#0c1f3a] cursor-pointer"
+                title="Download Supabase database backup JSON file"
+              >
+                <Database className="w-4 h-4 text-blue-400" />
+                <span>Database Backup</span>
+              </button>
+
+              <button
                 onClick={() => handleNavClick('settings')}
                 className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
                   activeTab === 'settings'
@@ -169,8 +211,12 @@ export default function AdminSidebar({ activeTab, setActiveTab, adminUser, onLog
             className="bg-[#0c1f3a] hover:bg-[#122849] rounded-2xl p-3 flex items-center justify-between border border-slate-800/90 shadow-sm cursor-pointer transition-colors"
           >
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-9 h-9 rounded-full bg-slate-100 text-[#07162c] font-bold text-xs flex items-center justify-center shrink-0 shadow-inner">
-                {adminUser?.initials || 'AD'}
+              <div className="w-9 h-9 rounded-full bg-slate-100 text-[#07162c] font-bold text-xs flex items-center justify-center shrink-0 shadow-inner overflow-hidden">
+                {adminUser?.photo_url ? (
+                  <img src={adminUser.photo_url} alt={adminUser?.name || 'Admin'} className="w-full h-full object-cover" />
+                ) : (
+                  adminUser?.initials || 'AD'
+                )}
               </div>
               <div className="min-w-0">
                 <h4 className="text-white text-xs font-semibold truncate leading-tight">

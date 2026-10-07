@@ -3,7 +3,7 @@ import { X, CalendarPlus, Plus, Trash2, Zap, Laptop, Smartphone, Clock, AlertTri
 
 const ALL_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
-export default function ApplyLeaveModal({ isOpen, onClose, onSubmitLeave, user }) {
+export default function ApplyLeaveModal({ isOpen, onClose, onSubmitLeave, user, leaveBalance }) {
   const [leaveType, setLeaveType] = useState('Casual Leave');
   const [halfDaySession, setHalfDaySession] = useState('Morning');
   // Special Leave: list of { day, session } entries
@@ -15,10 +15,9 @@ export default function ApplyLeaveModal({ isOpen, onClose, onSubmitLeave, user }
   const [startTime, setStartTime] = useState('09:00');
   const [endTime, setEndTime] = useState('11:30');
 
-  // Power Cut Special Leave Fields
+  // Power Cut Fields
   const [laptopBattery, setLaptopBattery] = useState('');
-  const [mobileBattery, setMobileBattery] = useState('');
-  const [powerCutDetails, setPowerCutDetails] = useState('');
+  const [phoneBattery, setPhoneBattery] = useState('');
 
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -26,6 +25,7 @@ export default function ApplyLeaveModal({ isOpen, onClose, onSubmitLeave, user }
   const [reason, setReason] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showOverQuotaModal, setShowOverQuotaModal] = useState(false);
 
   if (!isOpen) return null;
 
@@ -38,13 +38,13 @@ export default function ApplyLeaveModal({ isOpen, onClose, onSubmitLeave, user }
     setStartTime('09:00');
     setEndTime('11:30');
     setLaptopBattery('');
-    setMobileBattery('');
-    setPowerCutDetails('');
+    setPhoneBattery('');
     setStartDate('');
     setEndDate('');
     setDaysCount(1);
     setReason('');
     setErrorMsg('');
+    setShowOverQuotaModal(false);
   };
 
   const isHalfDay = leaveType === 'Half Day';
@@ -65,7 +65,7 @@ export default function ApplyLeaveModal({ isOpen, onClose, onSubmitLeave, user }
     if (!sTime || !eTime) return 0;
     const [sH, sM] = sTime.split(':').map(Number);
     const [eH, eM] = eTime.split(':').map(Number);
-    const diffMinutes = (eH * 60 + (sM !== undefined ? eM : 0)) - (sH * 60 + (sM !== undefined ? sM : 0));
+    const diffMinutes = (eH * 60 + (eM !== undefined ? eM : 0)) - (sH * 60 + (sM !== undefined ? sM : 0));
     return diffMinutes / 60;
   };
 
@@ -79,7 +79,7 @@ export default function ApplyLeaveModal({ isOpen, onClose, onSubmitLeave, user }
     if (isHalfDay || isShortLeave || isSpecialLeave || isPowerCut) {
       setEndDate(val);
       if (isShortLeave) {
-        setDaysCount(shortLeaveHours > 0 ? Math.min(0.5, +(shortLeaveHours / 8).toFixed(2)) : 0.25);
+        setDaysCount(shortLeaveHours > 0 ? Math.min(0.5, +(shortLeaveHours / 9).toFixed(3)) : 0.25);
       } else {
         setDaysCount(isHalfDay || isSpecialLeave ? 0.5 : 1);
       }
@@ -106,7 +106,7 @@ export default function ApplyLeaveModal({ isOpen, onClose, onSubmitLeave, user }
       if (startDate) setEndDate(startDate);
     } else if (newType === 'Short Leave') {
       const hrs = calculateShortLeaveDuration(startTime, endTime);
-      setDaysCount(hrs > 0 ? Math.min(0.5, +(hrs / 8).toFixed(2)) : 0.25);
+      setDaysCount(hrs > 0 ? Math.min(0.5, +(hrs / 9).toFixed(3)) : 0.25);
       if (startDate) setEndDate(startDate);
     } else if (newType === 'Power Cut') {
       setDaysCount(1);
@@ -124,14 +124,14 @@ export default function ApplyLeaveModal({ isOpen, onClose, onSubmitLeave, user }
     setStartTime(val);
     setErrorMsg('');
     const hrs = calculateShortLeaveDuration(val, endTime);
-    setDaysCount(hrs > 0 ? Math.min(0.5, +(hrs / 8).toFixed(2)) : 0.25);
+    setDaysCount(hrs > 0 ? Math.min(0.5, +(hrs / 9).toFixed(3)) : 0.25);
   };
 
   const handleEndTimeChange = (val) => {
     setEndTime(val);
     setErrorMsg('');
     const hrs = calculateShortLeaveDuration(startTime, val);
-    setDaysCount(hrs > 0 ? Math.min(0.5, +(hrs / 8).toFixed(2)) : 0.25);
+    setDaysCount(hrs > 0 ? Math.min(0.5, +(hrs / 9).toFixed(3)) : 0.25);
   };
 
   const switchToHalfDay = () => {
@@ -141,7 +141,6 @@ export default function ApplyLeaveModal({ isOpen, onClose, onSubmitLeave, user }
   };
 
   const addSpecialEntry = () => {
-    // Check for duplicate day
     const exists = specialEntries.find(e => e.day === pendingDay);
     if (exists) {
       setErrorMsg(`${pendingDay} is already added. Remove it first to change the session.`);
@@ -149,7 +148,6 @@ export default function ApplyLeaveModal({ isOpen, onClose, onSubmitLeave, user }
     }
     setSpecialEntries(prev => [...prev, { day: pendingDay, session: pendingSession }]);
     setErrorMsg('');
-    // Auto-advance to next available day
     const usedDays = [...specialEntries.map(e => e.day), pendingDay];
     const nextDay = ALL_DAYS.find(d => !usedDays.includes(d));
     if (nextDay) setPendingDay(nextDay);
@@ -160,13 +158,11 @@ export default function ApplyLeaveModal({ isOpen, onClose, onSubmitLeave, user }
     setErrorMsg('');
   };
 
-  // Sort entries by day order
   const sortedEntries = [...specialEntries].sort(
     (a, b) => ALL_DAYS.indexOf(a.day) - ALL_DAYS.indexOf(b.day)
   );
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const processSubmit = async (bypassQuotaCheck = false) => {
     if (!startDate) {
       setErrorMsg('Please select a date.');
       return;
@@ -188,18 +184,29 @@ export default function ApplyLeaveModal({ isOpen, onClose, onSubmitLeave, user }
       }
     }
 
+    if (isPowerCut) {
+      if (!laptopBattery || !phoneBattery) {
+        setErrorMsg('Please specify both Laptop and Phone battery percentages for Power Cut leave.');
+        return;
+      }
+    }
+
     if (isSpecialLeave && specialEntries.length === 0) {
       setErrorMsg('Please add at least one day for Special Leave.');
       return;
     }
 
-    if (isPowerCut) {
-      if (!laptopBattery.trim()) {
-        setErrorMsg('Please enter the battery power / percentage of your laptop.');
-        return;
-      }
-      if (!mobileBattery.trim()) {
-        setErrorMsg('Please enter the battery percentage of your mobile.');
+    // Check Leave Quota Balance (Only Power Cut does not deduct from regular leave quota)
+    const isCasualType = leaveType === 'Casual Leave';
+    const isQuotaExempt = leaveType === 'Power Cut';
+    
+    if (!isQuotaExempt) {
+      const currentQuota = isCasualType 
+        ? (leaveBalance?.casual?.available_days ?? user?.leaveBalance?.casual?.available_days ?? 7)
+        : (leaveBalance?.annual?.available_days ?? user?.leaveBalance?.annual?.available_days ?? 14);
+
+      if (currentQuota <= 0 && !bypassQuotaCheck) {
+        setShowOverQuotaModal(true);
         return;
       }
     }
@@ -214,10 +221,9 @@ export default function ApplyLeaveModal({ isOpen, onClose, onSubmitLeave, user }
       const finalDaysCount = isSpecialLeave 
         ? specialDaysTotal 
         : isShortLeave 
-        ? Math.min(0.5, +(shortLeaveHours / 8).toFixed(2))
+        ? +(shortLeaveHours / 9).toFixed(3)
         : (isHalfDay ? 0.5 : (Number(daysCount) || 1));
 
-      // Build the day_of_week string: "Monday:Full Day,Wednesday:Half Day"
       const dayOfWeekStr = isSpecialLeave
         ? sortedEntries.map(e => `${e.day}:${e.session}`).join(',')
         : null;
@@ -231,8 +237,7 @@ export default function ApplyLeaveModal({ isOpen, onClose, onSubmitLeave, user }
         const entryDesc = sortedEntries.map(e => `${e.day} (${e.session})`).join(', ');
         finalReason = `[Special Leave - ${entryDesc}] ${reason}`.trim();
       } else if (isPowerCut) {
-        const extra = powerCutDetails.trim() || reason.trim();
-        finalReason = `[Power Cut | Laptop Battery: ${laptopBattery.trim()}, Mobile Battery: ${mobileBattery.trim()}] ${extra}`.trim();
+        finalReason = `[Power Cut - Laptop: ${laptopBattery}%, Phone: ${phoneBattery}%] ${reason}`.trim();
       }
 
       await onSubmitLeave({
@@ -243,12 +248,12 @@ export default function ApplyLeaveModal({ isOpen, onClose, onSubmitLeave, user }
         day_of_week: dayOfWeekStr,
         start_time: isShortLeave ? (startTime + ':00') : isHalfDay ? (halfDaySession === 'Morning' ? '08:30:00' : '12:30:00') : null,
         end_time: isShortLeave ? (endTime + ':00') : isHalfDay ? (halfDaySession === 'Morning' ? '12:30:00' : '17:30:00') : null,
-        special_session: isHalfDay ? halfDaySession : isShortLeave ? `${shortLeaveHours.toFixed(1)} hrs` : null,
+        special_session: isHalfDay ? halfDaySession : isShortLeave ? `${shortLeaveHours.toFixed(1)} hrs` : isPowerCut ? `Laptop: ${laptopBattery}%, Phone: ${phoneBattery}%` : null,
         is_recurring: isSpecialLeave ? 1 : 0,
         reason: finalReason
       });
 
-      // Construct WhatsApp message
+      // WhatsApp Notification
       const empName = user?.name || 'Employee';
       const empDept = user?.department ? ` (${user.department})` : '';
       const waNumbers = ['94775227748', '94777885883'];
@@ -259,14 +264,9 @@ export default function ApplyLeaveModal({ isOpen, onClose, onSubmitLeave, user }
       } else if (isShortLeave) {
         leaveDurationStr = `${startDate} (${startTime} to ${endTime} · ${shortLeaveHours.toFixed(1)} hrs)`;
       } else if (isPowerCut) {
-        leaveDurationStr = `${startDate} (Power Cut)`;
+        leaveDurationStr = `${startDate} (Laptop: ${laptopBattery}%, Phone: ${phoneBattery}%)`;
       } else {
         leaveDurationStr = `${startDate} to ${finalEndDate} (${finalDaysCount} ${finalDaysCount === 1 ? 'day' : 'days'})`;
-      }
-
-      let extraWaDetails = '';
-      if (isPowerCut) {
-        extraWaDetails = `\n*Laptop Battery:* ${laptopBattery.trim()}\n*Mobile Battery:* ${mobileBattery.trim()}\n*Additional Outage Details:* ${powerCutDetails.trim() || reason.trim() || 'None'}`;
       }
 
       const waMessage = 
@@ -274,7 +274,8 @@ export default function ApplyLeaveModal({ isOpen, onClose, onSubmitLeave, user }
 ----------------------------------
 *Employee Name:* ${empName}${empDept}
 *Leave Type:* ${isShortLeave ? '⏱️ Short Leave' : isPowerCut ? '⚡ Power Cut' : leaveType}
-*Duration / Date:* ${leaveDurationStr}${extraWaDetails ? extraWaDetails : `\n*Reason / Details:* ${finalReason || 'None'}`}
+*Duration / Date:* ${leaveDurationStr}
+${isPowerCut ? `*Laptop Battery:* ${laptopBattery}%\n*Phone Battery:* ${phoneBattery}%\n` : ''}*Reason / Details:* ${finalReason || 'None'}
 ----------------------------------
 Submitted via P W Holdings Employee Management System`;
 
@@ -297,10 +298,49 @@ Submitted via P W Holdings Employee Management System`;
     }
   };
 
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    processSubmit(false);
+  };
+
   const availableDays = ALL_DAYS.filter(d => !specialEntries.find(e => e.day === d));
 
   return (
     <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4 select-none">
+      {/* Over-Quota Alert Modal Confirmation */}
+      {showOverQuotaModal && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-60 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-rose-100 text-center animate-in fade-in zoom-in-95 duration-150">
+            <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center mx-auto mb-3.5 shadow-2xs">
+              <AlertTriangle className="w-6 h-6" />
+            </div>
+            <h4 className="text-base font-bold text-slate-900 mb-1.5">Leave Balance Over</h4>
+            <p className="text-xs text-slate-600 font-medium mb-6 leading-relaxed">
+              Your leave balance is over now. Do you wish to proceed the leave request?
+            </p>
+            <div className="flex items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={() => setShowOverQuotaModal(false)}
+                className="px-4 py-2.5 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowOverQuotaModal(false);
+                  processSubmit(true);
+                }}
+                className="px-4 py-2.5 text-xs font-bold text-white bg-[#022851] hover:bg-[#03376e] rounded-xl shadow-xs transition-all cursor-pointer"
+              >
+                Proceed Request
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 relative animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-slate-100">
@@ -336,23 +376,35 @@ Submitted via P W Holdings Employee Management System`;
               <option value="Medical Leave">Medical Leave</option>
               <option value="Half Day">Half Day</option>
               <option value="Short Leave">⏱️ Short Leave (Max 3 hrs)</option>
+              <option value="Power Cut">⚡ Power Cut</option>
               <option value="Study Leave">Study Leave</option>
               <option value="Special Leave">Special Leave (Weekly Recurring)</option>
-              <option value="Power Cut">⚡ Power Cut (Emergency Leave)</option>
             </select>
-            <div className="mt-1.5 flex items-center gap-1.5 text-[11px] font-semibold">
+            <div className="mt-2 space-y-1.5">
               {leaveType === 'Casual Leave' ? (
-                <span className="text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-md">
-                  🌿 Deducts from Casual Leave quota (7 Days)
-                </span>
-              ) : leaveType === 'Study Leave' ? (
-                <span className="text-purple-700 bg-purple-50 border border-purple-200/80 px-2 py-0.5 rounded-md">
-                  📚 Study Leave (Standard Academic Leave)
+                <>
+                  <span className="text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-md text-[11px] font-semibold inline-block">
+                    🌿 Deducts from Casual Leave quota (7 Days)
+                  </span>
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-rose-600 bg-rose-50/80 border border-rose-200/80 px-2.5 py-1.5 rounded-xl">
+                    <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                    <span>You have remaining <strong>{(leaveBalance?.casual?.available_days ?? user?.leaveBalance?.casual?.available_days ?? 7)}</strong> {(leaveBalance?.casual?.available_days ?? user?.leaveBalance?.casual?.available_days ?? 7) === 1 ? 'day' : 'days'} for Casual Leave.</span>
+                  </div>
+                </>
+              ) : leaveType === 'Power Cut' ? (
+                <span className="text-amber-700 bg-amber-50 border border-amber-200/80 px-2 py-0.5 rounded-md text-[11px] font-semibold inline-block">
+                  ⚡ Power Cut (Emergency Leave - Does not deduct from leave quota)
                 </span>
               ) : (
-                <span className="text-blue-700 bg-blue-50 border border-blue-200/80 px-2 py-0.5 rounded-md">
-                  🏖️ Deducts from Annual Leave quota (14 Days)
-                </span>
+                <>
+                  <span className="text-blue-700 bg-blue-50 border border-blue-200/80 px-2 py-0.5 rounded-md text-[11px] font-semibold inline-block">
+                    🏖️ Deducts from Annual Leave quota (14 Days)
+                  </span>
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-rose-600 bg-rose-50/80 border border-rose-200/80 px-2.5 py-1.5 rounded-xl">
+                    <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                    <span>You have remaining <strong>{(leaveBalance?.annual?.available_days ?? user?.leaveBalance?.annual?.available_days ?? 14)}</strong> {(leaveBalance?.annual?.available_days ?? user?.leaveBalance?.annual?.available_days ?? 14) === 1 ? 'day' : 'days'} for Annual Leave quota.</span>
+                  </div>
+                </>
               )}
             </div>
           </div>
@@ -432,62 +484,7 @@ Submitted via P W Holdings Employee Management System`;
             </div>
           )}
 
-          {/* Power Cut Leave Section */}
-          {isPowerCut && (
-            <div className="bg-amber-50/70 p-4 rounded-xl border border-amber-200/70 space-y-3.5 animate-in fade-in duration-150">
-              <div className="flex items-center gap-2 text-amber-900 font-bold text-xs">
-                <Zap className="w-4 h-4 text-amber-600 fill-amber-500" />
-                <span>Power Cut (Outage Leave Details)</span>
-              </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-semibold text-amber-950 mb-1 flex items-center gap-1.5">
-                    <Laptop className="w-3.5 h-3.5 text-amber-700" />
-                    <span>Laptop Battery</span>
-                    <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={laptopBattery}
-                    onChange={(e) => setLaptopBattery(e.target.value)}
-                    placeholder="e.g. 35% or 1.5 hrs"
-                    className="w-full border border-amber-200 rounded-xl px-3 py-2 text-xs text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 font-semibold"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-semibold text-amber-950 mb-1 flex items-center gap-1.5">
-                    <Smartphone className="w-3.5 h-3.5 text-amber-700" />
-                    <span>Mobile Battery</span>
-                    <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={mobileBattery}
-                    onChange={(e) => setMobileBattery(e.target.value)}
-                    placeholder="e.g. 70%"
-                    className="w-full border border-amber-200 rounded-xl px-3 py-2 text-xs text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 font-semibold"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-semibold text-amber-950 mb-1">
-                  Additional Details (Optional)
-                </label>
-                <textarea
-                  rows={2}
-                  value={powerCutDetails}
-                  onChange={(e) => setPowerCutDetails(e.target.value)}
-                  placeholder="e.g. Power outage started at 1:30 PM, estimated power back at 5:30 PM..."
-                  className="w-full border border-amber-200 rounded-xl p-2.5 text-xs text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 resize-none font-medium"
-                />
-              </div>
-            </div>
-          )}
 
           {/* Special Leave: Add day + session entries one by one */}
           {isSpecialLeave && (
@@ -616,6 +613,64 @@ Submitted via P W Holdings Employee Management System`;
             </div>
           )}
 
+          {/* Power Cut Section: Laptop & Phone Battery Percentages */}
+          {isPowerCut && (
+            <div className="bg-amber-50/70 p-4 rounded-xl border border-amber-200/80 space-y-3.5 animate-in fade-in duration-150">
+              <div className="flex items-center gap-2 text-amber-900 font-bold text-xs">
+                <Zap className="w-4 h-4 text-amber-600" />
+                <span>Power Cut Battery Status</span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-semibold text-amber-950 mb-1 flex items-center gap-1">
+                    <Laptop className="w-3.5 h-3.5 text-amber-700" />
+                    <span>Laptop Battery <span className="text-rose-500">*</span></span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      required
+                      placeholder="e.g. 85"
+                      value={laptopBattery}
+                      onChange={(e) => {
+                        setLaptopBattery(e.target.value);
+                        setErrorMsg('');
+                      }}
+                      className="w-full border border-amber-200 rounded-xl px-3 py-2 text-xs text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 font-bold pr-7"
+                    />
+                    <span className="absolute right-3 top-2.5 text-xs font-bold text-amber-700 pointer-events-none">%</span>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-amber-950 mb-1 flex items-center gap-1">
+                    <Smartphone className="w-3.5 h-3.5 text-amber-700" />
+                    <span>Phone Battery <span className="text-rose-500">*</span></span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      required
+                      placeholder="e.g. 90"
+                      value={phoneBattery}
+                      onChange={(e) => {
+                        setPhoneBattery(e.target.value);
+                        setErrorMsg('');
+                      }}
+                      className="w-full border border-amber-200 rounded-xl px-3 py-2 text-xs text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 font-bold pr-7"
+                    />
+                    <span className="absolute right-3 top-2.5 text-xs font-bold text-amber-700 pointer-events-none">%</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Date Fields */}
           {(isHalfDay || isShortLeave || isSpecialLeave || isPowerCut) ? (
             <div>
@@ -670,20 +725,18 @@ Submitted via P W Holdings Employee Management System`;
             </>
           )}
 
-          {!isPowerCut && (
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Reason {isShortLeave ? '(Optional)' : '(Optional)'}
-              </label>
-              <textarea
-                rows={2}
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                placeholder={isShortLeave ? "Optional brief reason for short leave..." : "Brief reason for your leave request..."}
-                className="w-full border border-slate-200 rounded-xl p-3 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 resize-none font-medium"
-              />
-            </div>
-          )}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Reason {isShortLeave ? '(Optional)' : '(Optional)'}
+            </label>
+            <textarea
+              rows={2}
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder={isShortLeave ? "Optional brief reason for short leave..." : "Brief reason for your leave request..."}
+              className="w-full border border-slate-200 rounded-xl p-3 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 resize-none font-medium"
+            />
+          </div>
 
           {/* Actions */}
           <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">

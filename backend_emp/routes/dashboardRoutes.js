@@ -36,7 +36,8 @@ router.post('/work-entry', async (req, res) => {
   try {
     const userId = req.body.user_id || req.user?.id;
     const workDescription = req.body.work_description;
-    const result = await dashboardService.saveWorkEntry(userId, workDescription);
+    const clients = req.body.clients || [];
+    const result = await dashboardService.saveWorkEntry(userId, workDescription, clients);
     res.json(result);
   } catch (err) {
     console.error('Save work entry error:', err.message);

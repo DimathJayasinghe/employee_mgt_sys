@@ -227,7 +227,7 @@ function getLeaveCancellationStatus(leave) {
 }
 
 // Unified Email Dispatcher supporting Resend API & SMTP
-async function sendSystemEmail({ to, cc, subject, html }) {
+async function sendSystemEmail({ to, cc, subject, html, attachments }) {
   const resendApiKey = process.env.RESEND_API_KEY || (process.env.EMAIL_PASS?.startsWith('re_') ? process.env.EMAIL_PASS : null);
   const fromEmail = process.env.EMAIL_FROM || 'P W Holdings System <hr@mail.pwholdings.lk>';
 
@@ -242,6 +242,14 @@ async function sendSystemEmail({ to, cc, subject, html }) {
       };
       if (cc && (Array.isArray(cc) ? cc.length > 0 : Boolean(cc))) {
         payload.cc = Array.isArray(cc) ? cc : [cc];
+      }
+      if (attachments && Array.isArray(attachments) && attachments.length > 0) {
+        payload.attachments = attachments.map(att => ({
+          filename: att.filename,
+          content: Buffer.isBuffer(att.content)
+            ? att.content.toString('base64')
+            : Buffer.from(typeof att.content === 'string' ? att.content : JSON.stringify(att.content)).toString('base64')
+        }));
       }
 
       const res = await fetch('https://api.resend.com/emails', {
@@ -284,7 +292,8 @@ async function sendSystemEmail({ to, cc, subject, html }) {
         to,
         cc,
         subject,
-        html
+        html,
+        attachments
       });
       console.log(`✅ [SMTP] Email sent to ${to}. MessageID: ${info.messageId}`);
       return { success: true, id: info.messageId };
@@ -531,15 +540,15 @@ const dashboardService = {
     const casualUsed = approvedList
       .filter(l => l.leave_type && (l.leave_type === 'Casual Leave' || l.leave_type.toLowerCase().includes('casual')))
       .reduce((sum, l) => sum + parseFloat(l.days_count || 0), 0);
-    const casualAvailable = Math.max(0, casualTotal - casualUsed);
+    const casualAvailable = casualTotal - casualUsed;
 
-    // Annual Leave: 14 days allocated (Medical Leave, Half Day, Short Leave, Power Cut, Special Leave)
-    const annualKeywords = ['medical', 'half day', 'short leave', 'power cut', 'special'];
+    // Annual Leave: 14 days allocated (Medical Leave, Half Day, Short Leave, Special Leave, Study Leave)
+    const annualKeywords = ['medical', 'half day', 'short leave', 'special', 'study'];
     const annualTotal = 14;
     const annualUsed = approvedList
       .filter(l => l.leave_type && annualKeywords.some(kw => l.leave_type.toLowerCase().includes(kw)))
       .reduce((sum, l) => sum + parseFloat(l.days_count || 0), 0);
-    const annualAvailable = Math.max(0, annualTotal - annualUsed);
+    const annualAvailable = annualTotal - annualUsed;
 
     const totalDays = casualTotal + annualTotal; // 21
     const totalUsed = casualUsed + annualUsed;
@@ -633,7 +642,7 @@ const dashboardService = {
     // 6. Fetch Team Workforce Status Today (Working & On Leave)
     const { data: allUsers } = await supabase
       .from('users')
-      .select('id, name, initials, department, status, role')
+      .select('id, name, initials, department, status, role, photo_url')
       .order('name', { ascending: true });
 
     const { data: todayWorks } = await supabase
@@ -690,6 +699,7 @@ const dashboardService = {
         id: u.id,
         name: u.name,
         initials: u.initials || getInitials(u.name),
+        photo_url: u.photo_url || null,
         department: u.department || 'General',
         status: displayStatus,
         today_work: todayWorkDesc,
@@ -775,7 +785,7 @@ const dashboardService = {
           total_days: annualTotal,
           used_days: annualUsed,
           available_days: annualAvailable,
-          included_types: ['Medical Leave', 'Half Day', 'Short Leave', 'Power Cut', 'Special Leave']
+          included_types: ['Medical Leave', 'Half Day', 'Short Leave', 'Special Leave']
         }
       },
       recentLeaveRequests: formattedRecentLeaves,
@@ -789,9 +799,16 @@ const dashboardService = {
     };
   },
 
-  async saveWorkEntry(userId, work_description) {
+  async saveWorkEntry(userId, work_description, clients = []) {
     if (!userId) throw new Error('user_id is required');
     const todayStr = getTodayStr();
+    const clientList = Array.isArray(clients) ? clients : (clients ? [clients] : []);
+
+    let finalDescription = (work_description || '').trim();
+    if (clientList.length > 0) {
+      finalDescription = finalDescription.replace(/\n?\[Clients:[^\]]+\]/gi, '').trim();
+      finalDescription = `${finalDescription}\n[Clients: ${clientList.join(', ')}]`.trim();
+    }
 
     const { data: existing } = await supabase
       .from('daily_work_entries')
@@ -799,25 +816,25 @@ const dashboardService = {
       .eq('user_id', userId)
       .eq('entry_date', todayStr);
 
+    const payload = {
+      work_description: finalDescription,
+      updated_at: new Date().toISOString()
+    };
+
     if (existing && existing.length > 0) {
       await supabase
         .from('daily_work_entries')
-        .update({
-          work_description: work_description || '',
-          updated_at: new Date().toISOString()
-        })
+        .update(payload)
         .eq('id', existing[0].id);
     } else {
+      payload.user_id = userId;
+      payload.entry_date = todayStr;
       await supabase
         .from('daily_work_entries')
-        .insert([{
-          user_id: userId,
-          entry_date: todayStr,
-          work_description: work_description || ''
-        }]);
+        .insert([payload]);
     }
 
-    return { message: 'Work entry updated successfully', work_description };
+    return { message: 'Work entry updated successfully', work_description: finalDescription, clients: clientList };
   },
 
   async getWorkHistory(userId) {
@@ -1037,7 +1054,7 @@ const adminService = {
         id, user_id, leave_type, start_date, end_date, days_count, 
         day_of_week, start_time, end_time, special_session, is_recurring, 
         status, reason, created_at,
-        users (id, name, email, department, initials)
+        users (id, name, email, department, initials, photo_url)
       `)
       .eq('status', 'Pending')
       .order('created_at', { ascending: false });
@@ -1048,11 +1065,23 @@ const adminService = {
         id, user_id, leave_type, start_date, end_date, days_count, 
         day_of_week, start_time, end_time, special_session, is_recurring, 
         status, reason, created_at,
-        users (id, name, email, department, initials)
+        users (id, name, email, department, initials, photo_url)
       `)
       .eq('status', 'Approved')
       .gt('start_date', todayStr)
       .order('start_date', { ascending: true });
+
+    const { data: allLeavesRaw } = await supabase
+      .from('leave_requests')
+      .select(`
+        id, user_id, leave_type, start_date, end_date, days_count, 
+        day_of_week, start_time, end_time, special_session, is_recurring, 
+        status, reason, created_at,
+        users (id, name, email, department, initials, photo_url)
+      `)
+      .in('status', ['Approved', 'Rejected', 'Cancelled'])
+      .order('created_at', { ascending: false })
+      .limit(300);
 
     let workingCount = 0;
     let onLeaveCount = 0;
@@ -1118,6 +1147,7 @@ const adminService = {
         id: u.id,
         name: u.name,
         initials: u.initials || getInitials(u.name),
+        photo_url: u.photo_url || null,
         department: u.department || 'IT',
         status: displayStatus,
         today_work: todayWork,
@@ -1230,16 +1260,76 @@ const adminService = {
     if (staleUserIdsToWorking.length > 0) {
       supabase.from('users').update({ status: 'Working' }).in('id', staleUserIdsToWorking).then(() => {});
     }
-    if (userIdsToOnLeave.length > 0) {
-      supabase.from('users').update({ status: 'On Leave' }).in('id', userIdsToOnLeave).then(() => {});
-    }
+    // Fetch all approved leaves to compute exact available quota for pending request applicants
+    const { data: allApprovedLeaves } = await supabase
+      .from('leave_requests')
+      .select('user_id, leave_type, days_count')
+      .eq('status', 'Approved');
 
-    const pendingFormatted = (pendingRequests || []).map(r => ({
+    const userBalancesMap = {};
+    (allUsers || []).forEach(u => {
+      const uLeaves = (allApprovedLeaves || []).filter(l => l.user_id === u.id);
+      const cUsed = uLeaves
+        .filter(l => l.leave_type && (l.leave_type === 'Casual Leave' || l.leave_type.toLowerCase().includes('casual')))
+        .reduce((sum, l) => sum + parseFloat(l.days_count || 0), 0);
+      const aKw = ['medical', 'half day', 'short leave', 'special'];
+      const aUsed = uLeaves
+        .filter(l => l.leave_type && aKw.some(kw => l.leave_type.toLowerCase().includes(kw)))
+        .reduce((sum, l) => sum + parseFloat(l.days_count || 0), 0);
+
+      userBalancesMap[u.id] = {
+        casualAvailable: 7 - cUsed,
+        annualAvailable: 14 - aUsed
+      };
+    });
+
+    const pendingFormatted = (pendingRequests || []).map(r => {
+      const uBal = userBalancesMap[r.user_id] || { casualAvailable: 7, annualAvailable: 14 };
+      const isCasual = r.leave_type === 'Casual Leave' || (r.leave_type && r.leave_type.toLowerCase().includes('casual'));
+      const avail = isCasual ? uBal.casualAvailable : uBal.annualAvailable;
+      const isExceeded = avail <= 0;
+
+      return {
+        id: r.id,
+        user_id: r.user_id,
+        employee_name: r.users?.name || 'Employee',
+        initials: r.users?.initials || (r.users?.name ? getInitials(r.users.name) : 'EP'),
+        photo_url: r.users?.photo_url || null,
+        department: r.users?.department || 'IT',
+        leave_type: r.leave_type,
+        from_date: r.start_date,
+        to_date: r.end_date,
+        days_count: r.days_count,
+        day_of_week: r.day_of_week,
+        start_time: r.start_time,
+        end_time: r.end_time,
+        special_session: r.special_session,
+        is_recurring: r.is_recurring,
+        reason: r.reason,
+        status: r.status,
+        user_available_balance: avail,
+        is_exceeded_balance: isExceeded,
+        applied_date: r.created_at ? r.created_at.split('T')[0] : '',
+        duration: r.leave_type === 'Special Leave' && r.day_of_week
+          ? formatSpecialDays(r.day_of_week)
+          : (r.leave_type === 'Short Leave' && r.start_time && r.end_time)
+            ? `${formatTime12(r.start_time)} - ${formatTime12(r.end_time)}`
+            : (r.leave_type === 'Half Day' && r.start_time && r.end_time)
+              ? `${r.start_time} - ${r.end_time} (${r.days_count} day)`
+              : `${r.days_count} ${r.days_count === 1 ? 'day' : 'days'}`
+      };
+    });
+
+    const upcomingFormatted = (upcomingRequests || []).map(r => ({
       id: r.id,
+      user_id: r.user_id,
       employee_name: r.users?.name || 'Employee',
+      initials: r.users?.initials || (r.users?.name ? r.users.name.slice(0, 2).toUpperCase() : 'EM'),
+      department: r.users?.department || 'General',
+      email: r.users?.email || '',
       leave_type: r.leave_type,
-      from_date: r.start_date,
-      to_date: r.end_date,
+      from_date: r.start_date ? r.start_date.split('T')[0] : '',
+      to_date: r.end_date ? r.end_date.split('T')[0] : '',
       days_count: r.days_count,
       day_of_week: r.day_of_week,
       start_time: r.start_time,
@@ -1255,15 +1345,18 @@ const adminService = {
           ? `${formatTime12(r.start_time)} - ${formatTime12(r.end_time)}`
           : (r.leave_type === 'Half Day' && r.start_time && r.end_time)
             ? `${r.start_time} - ${r.end_time} (${r.days_count} day)`
-            : `${r.days_count} ${r.days_count === 1 ? 'day' : 'days'}`
+            : (r.start_date && r.end_date && r.start_date.split('T')[0] === r.end_date.split('T')[0]
+                ? `${r.days_count || 1} day (${r.start_date.split('T')[0]})`
+                : `${r.days_count} days (${r.start_date ? r.start_date.split('T')[0] : ''} to ${r.end_date ? r.end_date.split('T')[0] : ''})`)
     }));
 
-    const upcomingFormatted = (upcomingRequests || []).map(r => ({
+    const allLeavesFormatted = (allLeavesRaw || []).map(r => ({
       id: r.id,
       user_id: r.user_id,
       employee_name: r.users?.name || 'Employee',
-      initials: r.users?.initials || (r.users?.name ? r.users.name.slice(0, 2).toUpperCase() : 'EM'),
-      department: r.users?.department || 'General',
+      initials: r.users?.initials || (r.users?.name ? getInitials(r.users.name) : 'EP'),
+      photo_url: r.users?.photo_url || null,
+      department: r.users?.department || 'IT',
       email: r.users?.email || '',
       leave_type: r.leave_type,
       from_date: r.start_date ? r.start_date.split('T')[0] : '',
@@ -1310,6 +1403,7 @@ const adminService = {
       specialLeaveEmployees,
       pendingLeaveRequests: pendingFormatted,
       upcomingLeaves: upcomingFormatted,
+      allLeaves: allLeavesFormatted,
       allEmployees: (allUsers || []).map(u => {
         const activeLeave = leaveMap[u.id];
         const todayWork = workMap[u.id] || '';
@@ -1457,7 +1551,7 @@ const adminService = {
       .from('daily_work_entries')
       .select(`
         id, user_id, entry_date, work_description, created_at, updated_at,
-        users (id, name, initials, department, photo_url)
+        users (id, name, initials, department, photo_url, designation, card_designation, dob, date_joined, phone, personal_email, email, emp_code)
       `)
       .order('entry_date', { ascending: false })
       .order('created_at', { ascending: false });
@@ -1471,6 +1565,12 @@ const adminService = {
       initials: e.users?.initials || 'EP',
       photo_url: e.users?.photo_url || null,
       department: e.users?.department || 'IT',
+      designation: e.users?.designation || e.users?.card_designation || null,
+      date_joined: e.users?.date_joined || null,
+      dob: e.users?.dob || null,
+      phone: e.users?.phone || null,
+      email: e.users?.email || e.users?.personal_email || null,
+      emp_code: e.users?.emp_code || null,
       work_date: e.entry_date,
       work_description: e.work_description || 'No description provided.',
       created_at: e.created_at,
@@ -1526,7 +1626,7 @@ const adminService = {
     return { leaves: formattedLeaves };
   },
 
-  async approveLeave(id) {
+  async approveLeave(id, adminEmail = null) {
     if (!id) throw new Error('id is required');
     const todayStr = getTodayStr();
 
@@ -1539,6 +1639,50 @@ const adminService = {
     const lReq = leaves[0];
 
     if (lReq.status === 'Approved') throw new Error('Leave is already approved');
+
+    // Check if employee has reached or exceeded leave quota
+    const { data: userApprovedLeaves } = await supabase
+      .from('leave_requests')
+      .select('leave_type, days_count')
+      .eq('user_id', lReq.user_id)
+      .eq('status', 'Approved');
+
+    const leaveType = lReq.leave_type || '';
+    const isCasual = leaveType === 'Casual Leave' || leaveType.toLowerCase().includes('casual');
+    const isPowerCut = leaveType === 'Power Cut';
+
+    if (!isPowerCut) {
+      const casualTotal = 7;
+      const annualTotal = 14;
+      const annualKeywords = ['medical', 'half day', 'short leave', 'special', 'study'];
+
+      const approvedList = userApprovedLeaves || [];
+      const casualUsed = approvedList
+        .filter(l => l.leave_type && (l.leave_type === 'Casual Leave' || l.leave_type.toLowerCase().includes('casual')))
+        .reduce((sum, l) => sum + parseFloat(l.days_count || 0), 0);
+      const casualAvailable = casualTotal - casualUsed;
+
+      const annualUsed = approvedList
+        .filter(l => l.leave_type && annualKeywords.some(kw => l.leave_type.toLowerCase().includes(kw)))
+        .reduce((sum, l) => sum + parseFloat(l.days_count || 0), 0);
+      const annualAvailable = annualTotal - annualUsed;
+
+      const currentAvailable = isCasual ? casualAvailable : annualAvailable;
+      const isOverQuota = currentAvailable <= 0 || (currentAvailable - parseFloat(lReq.days_count || 1)) < 0;
+
+      if (isOverQuota) {
+        const normalizedEmail = (adminEmail || '').trim().toLowerCase();
+        const AUTHORIZED_SENIOR_ADMINS = [
+          'channet@pwholdings.lk',
+          'nishadi@pwholdings.lk',
+          'hashan@pwholdings.lk'
+        ];
+
+        if (!normalizedEmail || !AUTHORIZED_SENIOR_ADMINS.includes(normalizedEmail)) {
+          throw new Error('Over-quota leave requests can only be approved by authorized Senior Admins (channet@pwholdings.lk, nishadi@pwholdings.lk, hashan@pwholdings.lk).');
+        }
+      }
+    }
 
     const { error: uErr } = await supabase
       .from('leave_requests')
@@ -1726,6 +1870,42 @@ const adminService = {
     })();
 
     return { message: 'Leave rejected successfully' };
+  },
+
+  async generateFullBackup() {
+    const tables = ['users', 'leave_requests', 'daily_work_entries', 'leave_balances'];
+    const backup = {
+      manifest: {
+        exported_at: new Date().toISOString(),
+        tables_count: tables.length,
+        source: 'Supabase Database',
+        system: 'P W Holdings Employee Management System'
+      },
+      tables: {}
+    };
+
+    for (const table of tables) {
+      try {
+        const { data, error } = await supabase.from(table).select('*');
+        if (error) {
+          backup.tables[table] = { status: 'error', error: error.message, data: [] };
+        } else {
+          const tableData = data || [];
+          if (table === 'users') {
+            tableData.forEach(u => delete u.password);
+          }
+          backup.tables[table] = {
+            status: 'success',
+            record_count: tableData.length,
+            data: tableData
+          };
+        }
+      } catch (err) {
+        backup.tables[table] = { status: 'error', error: err.message, data: [] };
+      }
+    }
+
+    return backup;
   }
 };
 
@@ -2251,6 +2431,7 @@ module.exports = {
   dashboardService,
   adminService,
   profileService,
+  sendSystemEmail,
   JWT_SECRET
 };
 
