@@ -3,6 +3,7 @@ const router = express.Router();
 const requireAuth = require('../middleware/requireAuth');
 const { profileService } = require('../services/backendService');
 const { processBirthdayReminders } = require('../services/birthdayReminder');
+const { syncEmployeeToZoho } = require('../services/zohoService');
 const supabase = require('../db');
 
 // Manual Test Trigger Route for Birthday Reminders
@@ -29,18 +30,56 @@ router.post('/test/birthday-reminder', async (req, res) => {
   }
 });
 
+// Dev-Only Test Route for Zoho Custom Module Sync
+// POST /profile/zoho/test or /api/zoho/test
+router.post(['/zoho/test', '/test/zoho'], async (req, res) => {
+  if (process.env.NODE_ENV === 'production') {
+    return res.status(403).json({ error: 'Zoho test trigger is disabled in production mode' });
+  }
+
+  try {
+    const sampleEmployee = req.body && Object.keys(req.body).length > 0 ? req.body : {
+      name: 'Test Employee',
+      email: 'test.employee@example.com',
+      nic: '199512345678',
+      designation: 'Software Engineer',
+      card_designation: 'Sr. Software Engineer',
+      date_joined: '2024-01-15',
+      phone: '+94771234567'
+    };
+
+    const syncResult = await syncEmployeeToZoho(sampleEmployee);
+    return res.json({
+      message: 'Zoho CRM test sync executed',
+      sentPayload: sampleEmployee,
+      syncResult
+    });
+  } catch (err) {
+    console.error('Zoho test sync error:', err);
+    return res.status(500).json({ error: err.message || 'Failed to execute Zoho test sync' });
+  }
+});
+
 // Protect all following routes with requireAuth
 router.use(requireAuth);
 
 // GET /profile/me, /profile, /me
 router.get(['/profile/me', '/profile', '/me'], async (req, res) => {
   try {
-    const targetUserId = req.query.user_id || req.query.target_user_id || req.user.id;
+    let targetUserId = req.query.user_id || req.query.target_user_id || req.user.id;
+    const isOwner = String(targetUserId) === String(req.user.id);
+    const isAdmin = req.user?.role === 'Admin';
+
+    // Strict Privacy Rule: Non-admin employees can ONLY view their own profile!
+    if (!isAdmin && !isOwner) {
+      targetUserId = req.user.id;
+    }
+
     const profile = await profileService.getMyProfile(targetUserId);
     return res.json(profile);
   } catch (err) {
     const status = err.status || err.statusCode || 500;
-    return res.status(status).json({ error: err.message || 'Failed to fetch profile' });
+    return res.json({ error: err.message || 'Failed to fetch profile' });
   }
 });
 
@@ -73,6 +112,17 @@ router.get('/profile/admins', async (req, res) => {
     return res.json(admins);
   } catch (err) {
     return res.status(500).json({ error: err.message || 'Failed to fetch admin contacts' });
+  }
+});
+
+// POST /profile/create-employee (Admin Only)
+router.post('/profile/create-employee', async (req, res) => {
+  try {
+    const created = await profileService.createEmployee(req.body, req.user);
+    return res.status(201).json(created);
+  } catch (err) {
+    const status = err.status || err.statusCode || 400;
+    return res.status(status).json({ error: err.message || 'Failed to create employee profile' });
   }
 });
 
@@ -130,10 +180,10 @@ router.post('/profile/documents/upload', async (req, res) => {
     }
     const buffer = Buffer.from(base64String, 'base64');
 
-    // Server-side validation: max 5 MB
-    const maxSize = 5 * 1024 * 1024;
+    // Server-side validation: max 10 MB
+    const maxSize = 10 * 1024 * 1024;
     if (buffer.length > maxSize) {
-      return res.status(400).json({ error: 'Document file size exceeds 5 MB limit' });
+      return res.status(400).json({ error: 'Document file size exceeds 10 MB limit' });
     }
 
     const cleanName = document_name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
@@ -206,10 +256,10 @@ router.post('/profile/photo/upload', async (req, res) => {
     }
     const buffer = Buffer.from(base64String, 'base64');
 
-    // Server-side validation: max 2 MB
-    const maxSize = 2 * 1024 * 1024;
+    // Server-side validation: max 10 MB
+    const maxSize = 10 * 1024 * 1024;
     if (buffer.length > maxSize) {
-      return res.status(400).json({ error: 'Photo size exceeds 2 MB limit' });
+      return res.status(400).json({ error: 'Photo size exceeds 10 MB limit' });
     }
 
     const ext = mimeType.split('/')[1] || 'jpg';

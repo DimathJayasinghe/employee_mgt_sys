@@ -81,9 +81,15 @@ export default function NotificationBell({ onSelectEmployee }) {
                   key={emp.id}
                   onClick={() => {
                     setIsOpen(false);
-                    if (onSelectEmployee) onSelectEmployee(emp);
+                    const saved = localStorage.getItem('emp_mgt_user');
+                    const isUserAdmin = saved ? JSON.parse(saved)?.role === 'Admin' : false;
+                    if (isUserAdmin && onSelectEmployee) onSelectEmployee(emp);
                   }}
-                  className="p-2.5 rounded-xl border border-slate-100 bg-slate-50/60 hover:bg-pink-50/60 hover:border-pink-200 transition-all cursor-pointer flex items-center justify-between"
+                  className={`p-2.5 rounded-xl border border-slate-100 bg-slate-50/60 transition-all flex items-center justify-between ${
+                    localStorage.getItem('emp_mgt_user') && JSON.parse(localStorage.getItem('emp_mgt_user'))?.role === 'Admin'
+                      ? 'hover:bg-pink-50/60 hover:border-pink-200 cursor-pointer'
+                      : 'cursor-default'
+                  }`}
                 >
                   <div className="flex items-center gap-2.5">
                     <div className="w-7 h-7 rounded-full bg-pink-100 text-pink-700 font-bold text-[11px] flex items-center justify-center border border-pink-200 shrink-0">

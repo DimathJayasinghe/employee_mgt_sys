@@ -8,7 +8,8 @@ import {
   Calendar, 
   Settings, 
   LogOut, 
-  X
+  X,
+  User
 } from 'lucide-react';
 
 export default function AdminSidebar({ activeTab, setActiveTab, adminUser, onLogout, isMobileOpen, setIsMobileOpen }) {
@@ -130,26 +131,43 @@ export default function AdminSidebar({ activeTab, setActiveTab, adminUser, onLog
             </nav>
           </div>
 
-          {/* Section 4: SYSTEM */}
+          {/* Section 4: SYSTEM & PERSONAL PROFILE */}
           <div>
-            <p className="text-[11px] font-bold tracking-wider text-slate-400 uppercase px-3 mb-2">System</p>
-            <button
-              onClick={() => handleNavClick('settings')}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                activeTab === 'settings'
-                  ? 'bg-[#152a4a] text-white shadow-sm border border-slate-700/60'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-[#0c1f3a]'
-              }`}
-            >
-              <Settings className="w-4 h-4" />
-              <span>Settings</span>
-            </button>
+            <p className="text-[11px] font-bold tracking-wider text-slate-400 uppercase px-3 mb-2">System & Profile</p>
+            <nav className="space-y-1">
+              <button
+                onClick={() => handleNavClick('profile')}
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                  activeTab === 'profile'
+                    ? 'bg-[#152a4a] text-white shadow-sm border border-slate-700/60'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-[#0c1f3a]'
+                }`}
+              >
+                <User className="w-4 h-4 text-blue-400" />
+                <span>My Profile</span>
+              </button>
+
+              <button
+                onClick={() => handleNavClick('settings')}
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                  activeTab === 'settings'
+                    ? 'bg-[#152a4a] text-white shadow-sm border border-slate-700/60'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-[#0c1f3a]'
+                }`}
+              >
+                <Settings className="w-4 h-4" />
+                <span>Settings</span>
+              </button>
+            </nav>
           </div>
         </div>
 
         {/* Bottom Admin User Profile Card */}
         <div className="p-4 border-t border-slate-800/80">
-          <div className="bg-[#0c1f3a] rounded-2xl p-3 flex items-center justify-between border border-slate-800/90 shadow-sm">
+          <div 
+            onClick={() => handleNavClick('profile')}
+            className="bg-[#0c1f3a] hover:bg-[#122849] rounded-2xl p-3 flex items-center justify-between border border-slate-800/90 shadow-sm cursor-pointer transition-colors"
+          >
             <div className="flex items-center gap-3 min-w-0">
               <div className="w-9 h-9 rounded-full bg-slate-100 text-[#07162c] font-bold text-xs flex items-center justify-center shrink-0 shadow-inner">
                 {adminUser?.initials || 'AD'}
@@ -158,10 +176,14 @@ export default function AdminSidebar({ activeTab, setActiveTab, adminUser, onLog
                 <h4 className="text-white text-xs font-semibold truncate leading-tight">
                   {adminUser?.name || 'Administrator'}
                 </h4>
+                <p className="text-[10px] text-blue-400 font-semibold mt-0.5">My Profile</p>
               </div>
             </div>
             <button 
-              onClick={onLogout}
+              onClick={(e) => {
+                e.stopPropagation();
+                onLogout();
+              }}
               title="Log out"
               className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
             >

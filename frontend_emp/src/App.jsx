@@ -241,10 +241,14 @@ export default function App() {
 
   const [selectedEmployee, setSelectedEmployee] = useState(null);
 
-  // Helper for selecting an employee to view profile
+  // Helper for selecting an employee to view profile (Restricted to Admin or Owner)
   const handleSelectEmployee = (emp) => {
-    setSelectedEmployee(emp);
-    setActiveTab('profile');
+    const isAdmin = user?.role === 'Admin';
+    const isOwner = emp && user && String(emp.id) === String(user.id);
+    if (isAdmin || isOwner) {
+      setSelectedEmployee(emp);
+      setActiveTab('profile');
+    }
   };
 
   const adminTitles = {
@@ -294,12 +298,18 @@ export default function App() {
             adminUser={adminUser}
             currentViewMode={currentView}
             onToggleViewMode={toggleViewMode}
+            onOpenMyProfile={() => {
+              setSelectedEmployee(null);
+              setActiveTab('profile');
+            }}
             onMenuClick={() => setIsMobileOpen(true)}
           />
 
           <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
             {activeTab === 'admin-dashboard' && (
               <div>
+                <GreetingBanner user={currentUser || adminUser} />
+
                 <div className="mb-6">
                   <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 leading-tight tracking-tight">
                     Workforce overview
