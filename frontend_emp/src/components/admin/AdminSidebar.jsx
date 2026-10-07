@@ -3,6 +3,7 @@ import logoImg from '../../assets/logo.png';
 import { 
   LayoutDashboard, 
   Users, 
+  UserPlus,
   Briefcase, 
   Building2,
   ClipboardList, 
@@ -87,6 +88,18 @@ export default function AdminSidebar({ activeTab, setActiveTab, adminUser, onLog
               >
                 <Users className="w-4 h-4" />
                 <span>All Employees</span>
+              </button>
+
+              <button
+                onClick={() => handleNavClick('add-employee')}
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                  activeTab === 'add-employee'
+                    ? 'bg-[#152a4a] text-white shadow-sm border border-slate-700/60'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-[#0c1f3a]'
+                }`}
+              >
+                <UserPlus className="w-4 h-4" />
+                <span>Add New Employee</span>
               </button>
 
               <button

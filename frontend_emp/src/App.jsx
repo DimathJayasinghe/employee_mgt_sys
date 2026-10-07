@@ -28,6 +28,7 @@ import HalfDayAndStudyLeave from './components/admin/HalfDayAndStudyLeave';
 import PendingLeaveRequestsTable from './components/admin/PendingLeaveRequestsTable';
 import AllLeavesTable from './components/admin/AllLeavesTable';
 import AdminAllEmployeesView from './components/admin/AdminAllEmployeesView';
+import AdminAddEmployeeView from './components/admin/AdminAddEmployeeView';
 import AdminWorkActivityView from './components/admin/AdminWorkActivityView';
 import AdminClientAnalyticsView from './components/admin/AdminClientAnalyticsView';
 import LeaveCalendarView from './components/admin/LeaveCalendarView';
@@ -256,6 +257,7 @@ export default function App() {
   const adminTitles = {
     'admin-dashboard': 'Dashboard',
     'all-employees': 'All Employees',
+    'add-employee': 'Add New Employee',
     'work-activity': 'Work Activity',
     'client-analytics': 'Client Analytics',
     'admin-leave-requests': 'Leave Requests',
@@ -345,6 +347,8 @@ export default function App() {
             )}
 
             {activeTab === 'all-employees' && <AdminAllEmployeesView employees={allEmployees} onSelectEmployee={handleSelectEmployee} />}
+
+            {activeTab === 'add-employee' && <AdminAddEmployeeView />}
 
             {activeTab === 'admin-leave-requests' && (
               <div className="max-w-7xl mx-auto space-y-6">
