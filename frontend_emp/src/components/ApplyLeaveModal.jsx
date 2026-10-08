@@ -248,7 +248,7 @@ export default function ApplyLeaveModal({ isOpen, onClose, onSubmitLeave, user, 
         day_of_week: dayOfWeekStr,
         start_time: isShortLeave ? (startTime + ':00') : isHalfDay ? (halfDaySession === 'Morning' ? '08:30:00' : '12:30:00') : null,
         end_time: isShortLeave ? (endTime + ':00') : isHalfDay ? (halfDaySession === 'Morning' ? '12:30:00' : '17:30:00') : null,
-        special_session: isHalfDay ? halfDaySession : isShortLeave ? `${shortLeaveHours.toFixed(1)} hrs` : isPowerCut ? `Laptop: ${laptopBattery}%, Phone: ${phoneBattery}%` : null,
+        special_session: isHalfDay ? halfDaySession : isShortLeave ? `${shortLeaveHours.toFixed(1)} hrs` : isPowerCut ? 'Power Cut' : null,
         is_recurring: isSpecialLeave ? 1 : 0,
         reason: finalReason
       });
@@ -726,14 +726,20 @@ Submitted via P W Holdings Employee Management System`;
           )}
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
-              Reason {isShortLeave ? '(Optional)' : '(Optional)'}
-            </label>
+            <div className="flex justify-between items-center mb-1">
+              <label className="block text-xs font-semibold text-slate-700">
+                Reason (Optional)
+              </label>
+              <span className="text-[10px] text-slate-400 font-medium">
+                {reason.length}/500
+              </span>
+            </div>
             <textarea
-              rows={2}
+              rows={3}
+              maxLength={500}
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder={isShortLeave ? "Optional brief reason for short leave..." : "Brief reason for your leave request..."}
+              placeholder={isPowerCut ? "Details about power outage, tasks affected, etc. (up to 500 characters)" : "Reason for your leave request (up to 500 characters)..."}
               className="w-full border border-slate-200 rounded-xl p-3 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 resize-none font-medium"
             />
           </div>
