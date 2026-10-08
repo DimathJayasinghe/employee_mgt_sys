@@ -620,12 +620,12 @@ export default function StatCardsGrid({
                           </p>
                           {/* Reason or today's work summary */}
                           {item.leave_reason && (
-                            <p className="text-[11px] text-slate-600 italic mt-0.5">
+                            <p className="text-[11px] text-slate-600 italic mt-0.5 whitespace-pre-wrap break-words leading-relaxed">
                               Reason: {item.leave_reason}
                             </p>
                           )}
                           {item.reason && !item.leave_reason && (
-                            <p className="text-[11px] text-slate-600 italic mt-0.5">
+                            <p className="text-[11px] text-slate-600 italic mt-0.5 whitespace-pre-wrap break-words leading-relaxed">
                               Reason: {item.reason}
                             </p>
                           )}

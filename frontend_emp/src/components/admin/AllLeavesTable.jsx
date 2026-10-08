@@ -297,7 +297,7 @@ export default function AllLeavesTable({ leaves = [] }) {
                     <td className="px-6 py-4 font-bold text-slate-800">{item.duration || `${item.days_count} day(s)`}</td>
 
                     {/* Reason */}
-                    <td className="px-6 py-4 text-slate-600 max-w-xs truncate" title={item.reason}>
+                    <td className="px-6 py-4 text-slate-600 max-w-sm whitespace-pre-wrap break-words text-xs leading-relaxed" title={item.reason}>
                       {item.reason || '-'}
                     </td>
 
