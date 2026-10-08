@@ -1,4 +1,9 @@
-const cron = require('node-cron');
+let cron = null;
+try {
+  cron = require('node-cron');
+} catch (e) {
+  console.warn('node-cron module not found, using fallback interval timer for backup scheduler.');
+}
 const { adminService, sendSystemEmail } = require('./backendService');
 
 const TIMEZONE = process.env.TIMEZONE || 'Asia/Colombo';

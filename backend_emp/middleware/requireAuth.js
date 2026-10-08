@@ -2,14 +2,18 @@ const jwt = require('jsonwebtoken');
 const { JWT_SECRET } = require('../services/backendService');
 
 function requireAuth(req, res, next) {
-  const authHeader = req.headers.authorization || req.headers.Authorization;
+  const authHeader = req.headers['authorization'] || req.headers['Authorization'];
   let token = null;
 
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    token = authHeader.split(' ')[1];
+  if (authHeader) {
+    if (authHeader.startsWith('Bearer ')) {
+      token = authHeader.split(' ')[1];
+    } else {
+      token = authHeader;
+    }
   }
 
-  if (!token || token === 'null' || token === 'undefined') {
+  if (!token || token === 'null' || token === 'undefined' || token === '') {
     return res.status(401).json({ error: 'Authentication required' });
   }
 
@@ -18,12 +22,7 @@ function requireAuth(req, res, next) {
     req.user = decoded;
     return next();
   } catch (err) {
-    // Fallback support for active sessions storing user ID (any string/number)
-    if (token && typeof token === 'string' && token.trim() !== '' && token !== 'null' && token !== 'undefined') {
-      req.user = { id: token.trim(), role: 'Admin' };
-      return next();
-    }
-    return res.status(401).json({ error: 'Authentication required' });
+    return res.status(401).json({ error: 'Invalid or expired session token' });
   }
 }
 

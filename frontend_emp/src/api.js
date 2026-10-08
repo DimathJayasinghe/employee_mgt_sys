@@ -1,7 +1,7 @@
 // Centralized API Client connecting exclusively to Backend API Gateway
 const API_BASE_URL = import.meta.env.VITE_API_URL || (
-  window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-    ? 'http://localhost:5000/api'
+  typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    ? (window.location.port === '5173' ? '/api' : 'http://localhost:5000/api')
     : '/api'
 );
 
@@ -11,7 +11,7 @@ function getAuthToken() {
     const storedUser = localStorage.getItem('emp_mgt_user');
     if (storedUser) {
       const parsed = JSON.parse(storedUser);
-      return parsed.token || parsed.id || null;
+      return parsed.token || null;
     }
   } catch (e) {
     // Ignore JSON parse errors

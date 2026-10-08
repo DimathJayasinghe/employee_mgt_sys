@@ -29,8 +29,8 @@ router.post('/test/birthday-reminder', async (req, res) => {
   }
 });
 
-// Protect all following routes with requireAuth
-router.use(requireAuth);
+// Protect profile routes with requireAuth
+router.use(['/profile', '/me'], requireAuth);
 
 // GET /profile/me, /profile, /me
 router.get(['/profile/me', '/profile', '/me'], async (req, res) => {

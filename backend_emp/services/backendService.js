@@ -1,6 +1,7 @@
 const supabase = require('../db');
 const nodemailer = require('nodemailer');
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'pwholdings_secure_jwt_secret_key_2026';
 const ADMIN_EMAILS = [
@@ -313,17 +314,44 @@ const authService = {
     if (!email || !password) throw new Error('Email and password are required');
     const cleanEmail = email.trim().toLowerCase();
 
-    const { data: users, error } = await supabase
-      .from('users')
-      .select('id, name, department, email, password, initials, status, role, emp_code, designation, card_designation, employment_type, dob, gender, nic, address, phone, personal_email, date_joined, photo_url, skills')
-      .ilike('email', cleanEmail);
+    let users = null;
+    try {
+      const res = await supabase
+        .from('users')
+        .select('id, name, department, email, password, initials, status, role, emp_code, designation, card_designation, employment_type, dob, gender, nic, address, phone, personal_email, date_joined, photo_url, skills')
+        .ilike('email', cleanEmail);
+      if (!res.error && res.data && res.data.length > 0) {
+        users = res.data;
+      }
+    } catch (e) {}
 
-    if (error || !users || users.length === 0) {
-      throw new Error('Invalid email address or password');
+    if (!users || users.length === 0) {
+      const fallback = await supabase
+        .from('users')
+        .select('*')
+        .ilike('email', cleanEmail);
+      if (fallback.error || !fallback.data || fallback.data.length === 0) {
+        throw new Error('Invalid email address or password');
+      }
+      users = fallback.data;
     }
 
     const user = users[0];
-    if (user.password !== password) {
+    let isPasswordValid = false;
+
+    if (user.password) {
+      if (user.password.startsWith('$2a$') || user.password.startsWith('$2b$') || user.password.startsWith('$2y$')) {
+        try {
+          isPasswordValid = bcrypt.compareSync(password, user.password);
+        } catch (e) {
+          isPasswordValid = false;
+        }
+      } else {
+        isPasswordValid = (user.password === password);
+      }
+    }
+
+    if (!isPasswordValid) {
       throw new Error('Invalid email address or password');
     }
 
@@ -506,13 +534,26 @@ const dashboardService = {
     const todayStr = getTodayStr();
 
     // 1. Fetch User Profile
-    const { data: users, error: uErr } = await supabase
-      .from('users')
-      .select('id, name, department, email, initials, status, role, emp_code, designation, card_designation, employment_type, dob, gender, nic, address, phone, personal_email, date_joined, photo_url, skills')
-      .eq('id', userId);
+    let users = null;
+    try {
+      const res = await supabase
+        .from('users')
+        .select('id, name, department, email, initials, status, role, emp_code, designation, card_designation, employment_type, dob, gender, nic, address, phone, personal_email, date_joined, photo_url, skills')
+        .eq('id', userId);
+      if (!res.error && res.data && res.data.length > 0) {
+        users = res.data;
+      }
+    } catch (e) {}
 
-    if (uErr || !users || users.length === 0) {
-      throw new Error(uErr?.message || 'User not found');
+    if (!users || users.length === 0) {
+      const fallback = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId);
+      if (fallback.error || !fallback.data || fallback.data.length === 0) {
+        throw new Error(fallback.error?.message || 'User not found');
+      }
+      users = fallback.data;
     }
     const user = users[0];
 
@@ -639,10 +680,19 @@ const dashboardService = {
     });
 
     // 6. Fetch Team Workforce Status Today (Working & On Leave)
-    const { data: allUsers } = await supabase
-      .from('users')
-      .select('id, name, initials, department, status, role, photo_url')
-      .order('name', { ascending: true });
+    let allUsers = [];
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, name, initials, department, status, role, photo_url')
+        .order('name', { ascending: true });
+      if (!error && data) allUsers = data;
+    } catch (e) {}
+
+    if (allUsers.length === 0) {
+      const fb = await supabase.from('users').select('*').order('name', { ascending: true });
+      allUsers = fb.data || [];
+    }
 
     const { data: todayWorks } = await supabase
       .from('daily_work_entries')
