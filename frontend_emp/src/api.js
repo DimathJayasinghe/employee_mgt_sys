@@ -1,3 +1,5 @@
+import sessionManager from './services/sessionManager';
+
 // Centralized API Client connecting exclusively to Backend API Gateway
 const API_BASE_URL = import.meta.env.VITE_API_URL || (
   typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
@@ -5,21 +7,10 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || (
     : '/api'
 );
 
-// Helper to get stored auth token
-function getAuthToken() {
-  try {
-    const storedUser = localStorage.getItem('emp_mgt_user');
-    if (storedUser) {
-      const parsed = JSON.parse(storedUser);
-      return parsed.token || null;
-    }
-  } catch (e) {
-    // Ignore JSON parse errors
-  }
-  return null;
-}
-
-// Universal fetch wrapper
+/**
+ * Universal fetch wrapper with automatic JWT token injection,
+ * session activity renewal, and 401 unauthorized interceptor.
+ */
 async function request(endpoint, options = {}) {
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
   const url = `${API_BASE_URL}${cleanEndpoint}`;
@@ -29,9 +20,10 @@ async function request(endpoint, options = {}) {
     ...(options.headers || {})
   };
 
-  const token = getAuthToken();
+  const token = sessionManager.getToken();
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
+    sessionManager.recordActivity();
   }
 
   const config = {
@@ -52,6 +44,15 @@ async function request(endpoint, options = {}) {
       data = await response.json();
     } else {
       data = await response.text();
+    }
+
+    // Intercept 401 Unauthorized (Expired or invalid JWT session)
+    if (response.status === 401 && !endpoint.includes('/auth/login')) {
+      const reason = (typeof data === 'object' && data?.error)
+        ? data.error
+        : 'Your session has expired. Please sign in again.';
+      console.warn('⚠️ [Auth] 401 Unauthorized received. Triggering auto-logout.');
+      sessionManager.notifySessionExpired(reason);
     }
 
     if (!response.ok) {
@@ -89,3 +90,4 @@ const API = {
 };
 
 export default API;
+

@@ -13,9 +13,12 @@ const authRoutes = require('./routes/authRoutes');
 const zohoRoutes = require('./routes/zohoRoutes');
 const profileRoutes = require('./routes/profileRoutes');
 
+const securityHeaders = require('./middleware/securityHeaders');
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+app.use(securityHeaders);
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));

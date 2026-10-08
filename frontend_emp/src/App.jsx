@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import API from './api';
+import sessionManager from './services/sessionManager';
 
 // Authentication Landing Page
 import LoginPage from './components/LoginPage';
@@ -38,13 +39,15 @@ export default function App() {
   const [currentView, setCurrentView] = useState('login');
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [sessionNotice, setSessionNotice] = useState('');
 
-  // Logged in User State — restored from localStorage on mount
+  // Logged in User State — restored securely via sessionManager
   const [currentUser, setCurrentUser] = useState(() => {
-    try {
-      const saved = localStorage.getItem('emp_mgt_user');
-      return saved ? JSON.parse(saved) : null;
-    } catch { return null; }
+    if (sessionManager.isSessionValid()) {
+      return sessionManager.getUser();
+    }
+    sessionManager.clearSession();
+    return null;
   });
 
   // Employee Dashboard State
@@ -91,9 +94,37 @@ export default function App() {
   const [allLeaves, setAllLeaves] = useState([]);
   const [allEmployees, setAllEmployees] = useState([]);
 
-  // On mount: if a saved session exists, restore the correct view
+  // Auth Handlers (Memoized)
+  const handleLogout = useCallback((reason) => {
+    sessionManager.clearSession();
+    setCurrentUser(null);
+    setCurrentView('login');
+    if (reason && typeof reason === 'string') {
+      setSessionNotice(reason);
+    }
+  }, []);
+
+  // Listen for session expiration events & Inactivity Auto-logout Watcher
   useEffect(() => {
+    const unsubscribe = sessionManager.onSessionExpired((reason) => {
+      handleLogout(reason);
+    });
+
     if (currentUser) {
+      sessionManager.startInactivityWatcher(() => {
+        handleLogout('You have been logged out due to 30 minutes of inactivity.');
+      }, 30);
+    }
+
+    return () => {
+      unsubscribe();
+      sessionManager.stopInactivityWatcher();
+    };
+  }, [currentUser, handleLogout]);
+
+  // On mount: if a valid session exists, restore the correct view
+  useEffect(() => {
+    if (currentUser && sessionManager.isSessionValid()) {
       if (currentUser.role === 'Admin') {
         setAdminUser(currentUser);
         setCurrentView('admin');
@@ -104,6 +135,8 @@ export default function App() {
         setActiveTab('dashboard');
         fetchEmployeeSummary(currentUser.id);
       }
+    } else if (currentUser) {
+      handleLogout('Session expired. Please sign in again.');
     }
   }, []);
 
@@ -166,8 +199,9 @@ export default function App() {
 
   // Auth Handlers
   const handleLoginSuccess = (loggedInUser) => {
+    sessionManager.setSession(loggedInUser, loggedInUser.token);
     setCurrentUser(loggedInUser);
-    localStorage.setItem('emp_mgt_user', JSON.stringify(loggedInUser));
+    setSessionNotice('');
     if (loggedInUser.role === 'Admin') {
       setAdminUser(loggedInUser);
       setCurrentView('admin');
@@ -178,13 +212,6 @@ export default function App() {
       setActiveTab('dashboard');
       fetchEmployeeSummary(loggedInUser.id);
     }
-  };
-
-  const handleLogout = () => {
-    setCurrentUser(null);
-    localStorage.removeItem('emp_mgt_user');
-    localStorage.removeItem('emp_mgt_token');
-    setCurrentView('login');
   };
 
   // Admin Actions
@@ -277,7 +304,7 @@ export default function App() {
 
   // VIEW 1: LANDING LOGIN PAGE (First Page User Sees)
   if (currentView === 'login') {
-    return <LoginPage onLoginSuccess={handleLoginSuccess} />;
+    return <LoginPage onLoginSuccess={handleLoginSuccess} initialNotice={sessionNotice} />;
   }
 
   // VIEW 2: ADMIN DASHBOARD

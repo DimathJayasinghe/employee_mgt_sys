@@ -14,7 +14,7 @@ import {
   ArrowRight
 } from 'lucide-react';
 
-export default function LoginPage({ onLoginSuccess }) {
+export default function LoginPage({ onLoginSuccess, initialNotice = '' }) {
   // Mode: 'signin' | 'register' | 'forgot'
   const [mode, setMode] = useState('signin');
   const [otpStep, setOtpStep] = useState(false);
@@ -37,7 +37,7 @@ export default function LoginPage({ onLoginSuccess }) {
 
   // Status indicators
   const [loading, setLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState('');
+  const [errorMsg, setErrorMsg] = useState(initialNotice || '');
   const [successMsg, setSuccessMsg] = useState('');
 
   const resetAllState = () => {

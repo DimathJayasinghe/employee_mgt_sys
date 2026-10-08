@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'pwholdings_secure_jwt_secret_key_2026';
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '8h';
 const ADMIN_EMAILS = [
   'hashan@pwholdings.lk',
   'nishani@pwholdings.lk',
@@ -363,9 +364,15 @@ const authService = {
     delete user.password;
 
     const token = jwt.sign(
-      { id: user.id, email: user.email, role: user.role, name: user.name },
+      {
+        id: user.id,
+        sub: String(user.id),
+        email: user.email,
+        role: user.role,
+        name: user.name
+      },
       JWT_SECRET,
-      { expiresIn: '30d' }
+      { expiresIn: JWT_EXPIRES_IN }
     );
 
     user.token = token;
@@ -545,9 +552,15 @@ const authService = {
     delete newUser.password;
 
     const token = jwt.sign(
-      { id: newUser.id, email: newUser.email, role: newUser.role, name: newUser.name },
+      {
+        id: newUser.id,
+        sub: String(newUser.id),
+        email: newUser.email,
+        role: newUser.role,
+        name: newUser.name
+      },
       JWT_SECRET,
-      { expiresIn: '30d' }
+      { expiresIn: JWT_EXPIRES_IN }
     );
 
     newUser.token = token;
@@ -610,6 +623,22 @@ const authService = {
 
     delete otpStore[cleanEmail];
     return { message: 'Password reset successfully' };
+  },
+
+  /**
+   * Validates an active user session and returns fresh profile details
+   */
+  async validateSession(userId) {
+    if (!userId) {
+      const err = new Error('User ID is required');
+      err.status = 400;
+      throw err;
+    }
+    const profile = await profileService.getMyProfile(userId);
+    return {
+      valid: true,
+      user: profile
+    };
   }
 };
 
