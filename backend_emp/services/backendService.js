@@ -1069,7 +1069,6 @@ const adminService = {
       .eq('status', 'Approved')
       .gt('start_date', todayStr)
       .order('start_date', { ascending: true });
-
     const { data: allLeavesRaw } = await supabase
       .from('leave_requests')
       .select(`
