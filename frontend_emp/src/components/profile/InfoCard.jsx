@@ -1,6 +1,6 @@
 import React from 'react';
 import { User, Briefcase, Phone, Edit3, Sparkles } from 'lucide-react';
-import { formatDateDot, formatBirthdayStyle } from '../../utils/dateUtils';
+import { formatDateDot, formatBirthdayStyle, calculateTenure } from '../../utils/dateUtils';
 
 export function PersonalInfoCard({ profile, onOpenEditModal }) {
   const name = profile?.name || '-';
@@ -11,6 +11,8 @@ export function PersonalInfoCard({ profile, onOpenEditModal }) {
   const personalEmail = profile?.personal_email || '-';
   const phone = profile?.phone || '-';
   const address = profile?.address || '-';
+  const schoolAttended = profile?.school_attended || profile?.school || '-';
+  const tshirtSize = profile?.tshirt_size || profile?.t_shirt_size || '-';
 
   return (
     <div className="bg-white rounded-2xl p-6 shadow-xs border border-slate-200/80 mb-6">
@@ -43,12 +45,28 @@ export function PersonalInfoCard({ profile, onOpenEditModal }) {
 
         <div className="bg-slate-50/70 p-3.5 rounded-xl border border-slate-100">
           <span className="text-slate-400 font-medium block text-[11px] mb-0.5">Date of Birth</span>
-          <span className="font-bold text-slate-800 text-sm">{birthday} ({dobFormatted})</span>
+          <span className="font-bold text-slate-800 text-sm">{birthday}</span>
         </div>
 
         <div className="bg-slate-50/70 p-3.5 rounded-xl border border-slate-100">
           <span className="text-slate-400 font-medium block text-[11px] mb-0.5">Gender</span>
           <span className="font-bold text-slate-800 text-sm">{gender}</span>
+        </div>
+
+        <div className="bg-slate-50/70 p-3.5 rounded-xl border border-slate-100">
+          <span className="text-slate-400 font-medium block text-[11px] mb-0.5">School Attended</span>
+          <span className="font-bold text-slate-800 text-sm">{schoolAttended}</span>
+        </div>
+
+        <div className="bg-slate-50/70 p-3.5 rounded-xl border border-slate-100">
+          <span className="text-slate-400 font-medium block text-[11px] mb-0.5">T-Shirt Size</span>
+          <span className="font-bold text-slate-800 text-sm inline-flex items-center gap-1.5">
+            {tshirtSize !== '-' ? (
+              <span className="bg-blue-100 text-blue-800 text-[11px] font-extrabold px-2.5 py-0.5 rounded-md border border-blue-200">
+                {tshirtSize}
+              </span>
+            ) : '-'}
+          </span>
         </div>
 
         <div className="bg-slate-50/70 p-3.5 rounded-xl border border-slate-100">
@@ -71,12 +89,24 @@ export function PersonalInfoCard({ profile, onOpenEditModal }) {
 }
 
 export function EmploymentInfoCard({ profile, onOpenEditModal }) {
+  const currentUser = (() => {
+    try {
+      const saved = localStorage.getItem('emp_mgt_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  })();
+  const isAdmin = currentUser?.role === 'Admin';
+
   const empCode = profile?.emp_code || '-';
   const designation = profile?.designation || '-';
   const cardDesignation = profile?.card_designation || '-';
   const department = profile?.department || '-';
   const employmentType = profile?.employment_type || 'Full Time';
-  const dateJoined = formatDateDot(profile?.date_joined);
+  const rawJoined = profile?.date_joined || profile?.joined_date;
+  const dateJoined = formatDateDot(rawJoined);
+  const tenure = calculateTenure(rawJoined);
   const role = profile?.role || 'Employee';
   const status = profile?.status || 'Working';
 
@@ -126,7 +156,10 @@ export function EmploymentInfoCard({ profile, onOpenEditModal }) {
 
         <div className="bg-slate-50/70 p-3.5 rounded-xl border border-slate-100">
           <span className="text-slate-400 font-medium block text-[11px] mb-0.5">Date Joined</span>
-          <span className="font-bold text-slate-800 text-sm">{dateJoined}</span>
+          <span className="font-bold text-slate-800 text-sm block">{dateJoined}</span>
+          {tenure.text !== '-' && (
+            <span className="text-[11px] font-bold text-emerald-700 block mt-0.5">{tenure.text}</span>
+          )}
         </div>
 
         <div className="bg-slate-50/70 p-3.5 rounded-xl border border-slate-100">

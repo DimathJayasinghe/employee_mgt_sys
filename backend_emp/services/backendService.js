@@ -1,6 +1,7 @@
 const supabase = require('../db');
 const nodemailer = require('nodemailer');
 const jwt = require('jsonwebtoken');
+const { syncEmployeeToZoho } = require('./zohoService');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'pwholdings_secure_jwt_secret_key_2026';
 const ADMIN_EMAILS = [
@@ -1910,7 +1911,7 @@ const adminService = {
 // =============================================================
 // PROFILE SERVICE
 // =============================================================
-const PROFILE_COLUMNS = 'id, emp_code, designation, card_designation, employment_type, dob, gender, nic, address, phone, personal_email, date_joined, photo_url, skills, department, status, role, email, name, initials';
+const PROFILE_COLUMNS = 'id, emp_code, designation, card_designation, employment_type, dob, gender, nic, address, phone, personal_email, school_attended, tshirt_size, date_joined, photo_url, skills, department, status, role, email, name, initials';
 
 const profileService = {
   async getMyProfile(userId) {
@@ -1971,6 +1972,19 @@ const profileService = {
     // Resolve target numeric user record first to guarantee valid numeric ID
     const targetProfile = await this.getMyProfile(userId);
     const resolvedId = targetProfile.id;
+
+    // Strict Permission Rule: Employees profiles are View Only for Admins / other users.
+    // Only the profile owner can update their own profile data.
+    const isOwner = requestingUser && (
+      String(requestingUser.id) === String(resolvedId) ||
+      (requestingUser.email && targetProfile.email && requestingUser.email.toLowerCase() === targetProfile.email.toLowerCase())
+    );
+
+    if (requestingUser && !isOwner) {
+      const err = new Error('Access denied: Employee profiles are View Only. Only the profile owner can edit their own profile.');
+      err.status = 403;
+      throw err;
+    }
 
     const payload = {};
 
@@ -2052,40 +2066,65 @@ const profileService = {
       }
     }
 
-    // Name, Emp Code, Department, Designation, Gender, Joined Date (Admin or full access)
-    const isAdmin = !requestingUser || requestingUser.role === 'Admin';
-    if (isAdmin) {
-      if (updates.name !== undefined && updates.name.trim() !== '') {
-        payload.name = updates.name.trim();
-        payload.initials = getInitials(updates.name.trim());
-      }
-      if (updates.emp_code !== undefined) {
-        payload.emp_code = updates.emp_code ? updates.emp_code.trim() : null;
-      }
-      if (updates.department !== undefined) {
-        payload.department = updates.department ? updates.department.trim() : null;
-      }
-      if (updates.designation !== undefined) {
-        payload.designation = updates.designation ? updates.designation.trim() : null;
-      }
-      if (updates.card_designation !== undefined) {
-        payload.card_designation = updates.card_designation ? updates.card_designation.trim() : null;
-      }
-      if (updates.gender !== undefined) {
-        const raw = typeof updates.gender === 'string' ? updates.gender.trim() : updates.gender;
-        payload.gender = raw || null;
-      }
-      if (updates.joined_date !== undefined || updates.date_joined !== undefined) {
-        const jd = updates.date_joined || updates.joined_date;
-        payload.date_joined = jd ? jd.trim().split('T')[0] : null;
-      }
+    // School Attended
+    if (updates.school_attended !== undefined || updates.school !== undefined) {
+      const raw = updates.school_attended !== undefined ? updates.school_attended : updates.school;
+      const str = typeof raw === 'string' ? raw.trim() : raw;
+      payload.school_attended = str || null;
+    }
+
+    // T-shirt Size
+    if (updates.tshirt_size !== undefined || updates.t_shirt_size !== undefined) {
+      const raw = updates.tshirt_size !== undefined ? updates.tshirt_size : updates.t_shirt_size;
+      const str = typeof raw === 'string' ? raw.trim() : raw;
+      payload.tshirt_size = str || null;
+    }
+
+    // Employment Details (Name, Emp Code, Department, Designation, Card Designation, Joined Date)
+    if (updates.name !== undefined && typeof updates.name === 'string' && updates.name.trim() !== '') {
+      payload.name = updates.name.trim();
+      payload.initials = getInitials(updates.name.trim());
+    }
+    if (updates.emp_code !== undefined) {
+      payload.emp_code = updates.emp_code ? String(updates.emp_code).trim() : null;
+    }
+    if (updates.department !== undefined) {
+      payload.department = updates.department ? String(updates.department).trim() : null;
+    }
+    if (updates.designation !== undefined) {
+      payload.designation = updates.designation ? String(updates.designation).trim() : null;
+    }
+    if (updates.card_designation !== undefined) {
+      payload.card_designation = updates.card_designation ? String(updates.card_designation).trim() : null;
+    }
+    if (updates.joined_date !== undefined || updates.date_joined !== undefined) {
+      const jd = updates.date_joined !== undefined ? updates.date_joined : updates.joined_date;
+      const raw = typeof jd === 'string' ? jd.trim() : jd;
+      payload.date_joined = raw ? String(raw).split('T')[0] : null;
     }
 
     if (Object.keys(payload).length > 0) {
-      const { error: updateError } = await supabase
+      let { error: updateError } = await supabase
         .from('users')
         .update(payload)
         .eq('id', resolvedId);
+
+      if (updateError && (updateError.message?.toLowerCase().includes('column') || updateError.code === 'PGRST204')) {
+        console.warn('Supabase schema missing column warning:', updateError.message);
+        const fallbackPayload = { ...payload };
+        delete fallbackPayload.school_attended;
+        delete fallbackPayload.tshirt_size;
+
+        if (Object.keys(fallbackPayload).length > 0) {
+          const retryRes = await supabase
+            .from('users')
+            .update(fallbackPayload)
+            .eq('id', resolvedId);
+          updateError = retryRes.error;
+        } else {
+          updateError = null;
+        }
+      }
 
       if (updateError) {
         throw updateError;
@@ -2093,7 +2132,103 @@ const profileService = {
       await this.logActivity(resolvedId, 'profile_updated', 'Updated profile information (DOB/contact/personal details)');
     }
 
-    return await this.getMyProfile(resolvedId);
+    const updatedProfile = await this.getMyProfile(resolvedId);
+    if (updatedProfile) {
+      syncEmployeeToZoho(updatedProfile).then(res => {
+        if (!res.success) {
+          console.error(`Zoho sync failed for updated profile ${resolvedId}:`, res.error);
+        }
+      }).catch(err => {
+        console.error(`Unexpected Zoho sync error for profile ${resolvedId}:`, err);
+      });
+    }
+    return updatedProfile;
+  },
+
+  async createEmployee(data = {}, requestingUser) {
+    const isAdmin = !requestingUser || requestingUser.role === 'Admin';
+    if (!isAdmin) {
+      const err = new Error('Access denied: Admin role required to create employee profiles');
+      err.status = 403;
+      throw err;
+    }
+
+    if (!data.name || !data.name.trim()) {
+      const err = new Error('Name is required');
+      err.status = 400;
+      throw err;
+    }
+
+    if (!data.email || !data.email.trim()) {
+      const err = new Error('Corporate email is required');
+      err.status = 400;
+      throw err;
+    }
+
+    const cleanName = data.name.trim();
+    const cleanEmail = data.email.trim().toLowerCase();
+    const initials = getInitials(cleanName);
+
+    const payload = {
+      name: cleanName,
+      email: cleanEmail,
+      password: data.password ? data.password.trim() : 'pwh12345',
+      role: data.role || 'Employee',
+      status: 'Working',
+      initials: initials,
+      emp_code: data.emp_code ? data.emp_code.trim() : null,
+      department: data.department ? data.department.trim() : 'IT',
+      designation: data.designation ? data.designation.trim() : null,
+      card_designation: data.card_designation ? data.card_designation.trim() : null,
+      date_joined: data.date_joined || data.joined_date || null,
+      dob: data.dob ? data.dob.split('T')[0] : null,
+      gender: data.gender || 'Male',
+      nic: data.nic ? data.nic.trim() : null,
+      phone: data.phone ? data.phone.trim() : null,
+      personal_email: data.personal_email ? data.personal_email.trim() : null,
+      address: data.address ? data.address.trim() : null,
+      school_attended: (data.school_attended || data.school) ? (data.school_attended || data.school).trim() : null,
+      tshirt_size: (data.tshirt_size || data.t_shirt_size) ? (data.tshirt_size || data.t_shirt_size).trim() : null
+    };
+
+    let { data: inserted, error } = await supabase
+      .from('users')
+      .insert([payload])
+      .select('*');
+
+    if (error && (error.message?.toLowerCase().includes('column') || error.code === 'PGRST204')) {
+      console.warn('Supabase schema missing column warning on create:', error.message);
+      const fallbackPayload = { ...payload };
+      delete fallbackPayload.school_attended;
+      delete fallbackPayload.tshirt_size;
+
+      const retryRes = await supabase
+        .from('users')
+        .insert([fallbackPayload])
+        .select('*');
+      inserted = retryRes.data;
+      error = retryRes.error;
+    }
+
+    if (error) {
+      console.error('Error creating user profile in Supabase:', error.message);
+      throw error;
+    }
+
+    const createdUser = inserted?.[0] || payload;
+    if (createdUser.id) {
+      await this.logActivity(createdUser.id, 'profile_created', `Admin created employee profile for "${cleanName}"`);
+    }
+
+    delete createdUser.password;
+    syncEmployeeToZoho(createdUser).then(res => {
+      if (!res.success) {
+        console.error(`Zoho sync failed for new employee profile ${createdUser.id || cleanName}:`, res.error);
+      }
+    }).catch(err => {
+      console.error(`Unexpected Zoho sync error for new employee profile ${createdUser.id || cleanName}:`, err);
+    });
+    return createdUser;
   },
 
   async getUpcomingBirthdays() {

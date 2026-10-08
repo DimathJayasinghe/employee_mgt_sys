@@ -95,14 +95,34 @@ export default function EmployeeProfileView({ onBack, user, onSelectEmployee }) 
     );
   }
 
+  const activeUser = (() => {
+    try {
+      const saved = localStorage.getItem('emp_mgt_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  })();
+
+  const isOwner = Boolean(
+    activeUser && (
+      (activeUser.id && profile?.id && String(activeUser.id) === String(profile.id)) ||
+      (activeUser.email && profile?.email && activeUser.email.toLowerCase() === profile.email.toLowerCase()) ||
+      (!user && profile)
+    )
+  );
+
+  const handleOpenEditModal = isOwner ? () => setIsEditModalOpen(true) : null;
+  const handleOpenPhotoModal = isOwner ? () => setIsPhotoModalOpen(true) : null;
+
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       {/* Hero Banner */}
       <ProfileHero
         profile={profile}
         onBack={onBack}
-        onOpenEditModal={() => setIsEditModalOpen(true)}
-        onOpenPhotoModal={() => setIsPhotoModalOpen(true)}
+        onOpenEditModal={handleOpenEditModal}
+        onOpenPhotoModal={handleOpenPhotoModal}
       />
 
       {/* Navigation Sub-Tabs */}
@@ -139,13 +159,13 @@ export default function EmployeeProfileView({ onBack, user, onSelectEmployee }) 
           {/* Upcoming Birthday Alert (if any active today/tomorrow) */}
           <UpcomingBirthdayCard
             birthdayEmployees={upcomingBirthdays}
-            onSelectEmployee={onSelectEmployee}
+            onSelectEmployee={profile?.role === 'Admin' || (user?.role === 'Admin') ? onSelectEmployee : null}
           />
 
           {/* Current Profile Birthday Reminder Card */}
           <BirthdayReminderCard
             profile={profile}
-            onSelectEmployee={onSelectEmployee}
+            onSelectEmployee={profile?.role === 'Admin' || (user?.role === 'Admin') ? onSelectEmployee : null}
           />
 
           {/* 4 Stat Cards */}
@@ -157,7 +177,7 @@ export default function EmployeeProfileView({ onBack, user, onSelectEmployee }) 
             <div className="lg:col-span-8 space-y-6">
               <PersonalInfoCard
                 profile={profile}
-                onOpenEditModal={() => setIsEditModalOpen(true)}
+                onOpenEditModal={handleOpenEditModal}
               />
               <RecentActivity userId={profile?.id} />
             </div>
@@ -166,7 +186,7 @@ export default function EmployeeProfileView({ onBack, user, onSelectEmployee }) 
             <div className="lg:col-span-4 space-y-6">
               <QuickActions
                 profile={profile}
-                onOpenEditModal={() => setIsEditModalOpen(true)}
+                onOpenEditModal={handleOpenEditModal}
                 onOpenDocumentsTab={() => setActiveSubTab('documents')}
               />
             </div>
@@ -178,7 +198,7 @@ export default function EmployeeProfileView({ onBack, user, onSelectEmployee }) 
       {activeSubTab === 'personal' && (
         <PersonalInfoCard
           profile={profile}
-          onOpenEditModal={() => setIsEditModalOpen(true)}
+          onOpenEditModal={handleOpenEditModal}
         />
       )}
 
@@ -186,7 +206,7 @@ export default function EmployeeProfileView({ onBack, user, onSelectEmployee }) 
       {activeSubTab === 'employment' && (
         <EmploymentInfoCard
           profile={profile}
-          onOpenEditModal={() => setIsEditModalOpen(true)}
+          onOpenEditModal={handleOpenEditModal}
         />
       )}
 
@@ -194,7 +214,7 @@ export default function EmployeeProfileView({ onBack, user, onSelectEmployee }) 
       {activeSubTab === 'contact' && (
         <ContactInfoCard
           profile={profile}
-          onOpenEditModal={() => setIsEditModalOpen(true)}
+          onOpenEditModal={handleOpenEditModal}
         />
       )}
 

@@ -108,38 +108,41 @@ export default function NotificationBell({ onSelectEmployee }) {
             </div>
           ) : (
             <div className="space-y-2 max-h-64 overflow-y-auto">
-              {activeNotifications.map((item) => {
-                const { emp, countdown } = item;
-                return (
-                  <div
-                    key={emp.id}
-                    onClick={() => {
-                      setIsOpen(false);
-                      if (onSelectEmployee) onSelectEmployee(emp);
-                    }}
-                    className="p-2.5 rounded-xl border border-slate-100 bg-slate-50/60 hover:bg-pink-50/60 hover:border-pink-200 transition-all cursor-pointer flex items-center justify-between"
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-7 h-7 rounded-full bg-pink-100 text-pink-700 font-bold text-[11px] flex items-center justify-center border border-pink-200 shrink-0 overflow-hidden">
-                        {emp.photo_url ? (
-                          <img src={emp.photo_url} alt={emp.name} className="w-full h-full object-cover" />
-                        ) : (
-                          emp.initials || (emp.name ? emp.name.slice(0, 2).toUpperCase() : 'EP')
-                        )}
-                      </div>
-                      <div>
-                        <h5 className="text-xs font-bold text-slate-800 leading-tight">{emp.name}</h5>
-                        <p className="text-[10px] font-medium text-pink-600 mt-0.5">
-                          {countdown.status === 'today' 
-                            ? "🎉 Today is their Birthday!" 
-                            : `🎁 Tomorrow (in ${countdown.hoursLeft} hrs)`}
-                        </p>
-                      </div>
+              {activeNotifications.map(({ emp, countdown }) => (
+                <div
+                  key={emp.id}
+                  onClick={() => {
+                    setIsOpen(false);
+                    const saved = localStorage.getItem('emp_mgt_user');
+                    const isUserAdmin = saved ? JSON.parse(saved)?.role === 'Admin' : false;
+                    if (isUserAdmin && onSelectEmployee) onSelectEmployee(emp);
+                  }}
+                  className={`p-2.5 rounded-xl border border-slate-100 bg-slate-50/60 transition-all flex items-center justify-between ${
+                    localStorage.getItem('emp_mgt_user') && JSON.parse(localStorage.getItem('emp_mgt_user'))?.role === 'Admin'
+                      ? 'hover:bg-pink-50/60 hover:border-pink-200 cursor-pointer'
+                      : 'cursor-default'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-full bg-pink-100 text-pink-700 font-bold text-[11px] flex items-center justify-center border border-pink-200 shrink-0 overflow-hidden">
+                      {emp.photo_url ? (
+                        <img src={emp.photo_url} alt={emp.name} className="w-full h-full object-cover" />
+                      ) : (
+                        emp.initials || (emp.name ? emp.name.slice(0, 2).toUpperCase() : 'EP')
+                      )}
                     </div>
-                    <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                    <div>
+                      <h5 className="text-xs font-bold text-slate-800 leading-tight">{emp.name}</h5>
+                      <p className="text-[10px] font-medium text-pink-600 mt-0.5">
+                        {countdown.status === 'today' 
+                          ? "🎉 Today is their Birthday!" 
+                          : `🎁 Tomorrow (in ${countdown.hoursLeft} hrs)`}
+                      </p>
+                    </div>
                   </div>
-                );
-              })}
+                  <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                </div>
+              ))}
             </div>
           )}
         </div>
@@ -147,4 +150,3 @@ export default function NotificationBell({ onSelectEmployee }) {
     </div>
   );
 }
-

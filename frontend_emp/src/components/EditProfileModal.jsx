@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, User, Phone, Mail, MapPin, AlertCircle, Save, Lock, CheckCircle2, Calendar, CreditCard, Briefcase, Building } from 'lucide-react';
+import { X, User, Phone, Mail, MapPin, AlertCircle, Save, Lock, CheckCircle2, Calendar, CreditCard, Briefcase, Building, GraduationCap, Shirt } from 'lucide-react';
 import API from '../api';
 
 export default function EditProfileModal({ isOpen, onClose, profile, onProfileUpdated }) {
@@ -8,6 +8,8 @@ export default function EditProfileModal({ isOpen, onClose, profile, onProfileUp
     dob: '',
     gender: '',
     nic: '',
+    school_attended: '',
+    tshirt_size: '',
     phone: '',
     personal_email: '',
     address: '',
@@ -37,6 +39,8 @@ export default function EditProfileModal({ isOpen, onClose, profile, onProfileUp
         dob: profile.dob ? profile.dob.split('T')[0] : '',
         gender: profile.gender || '',
         nic: profile.nic || '',
+        school_attended: profile.school_attended || profile.school || '',
+        tshirt_size: profile.tshirt_size || profile.t_shirt_size || '',
         phone: profile.phone || '',
         personal_email: profile.personal_email || '',
         address: profile.address || '',
@@ -44,7 +48,7 @@ export default function EditProfileModal({ isOpen, onClose, profile, onProfileUp
         department: profile.department || '',
         designation: profile.designation || '',
         card_designation: profile.card_designation || '',
-        joined_date: profile.joined_date ? profile.joined_date.split('T')[0] : ''
+        joined_date: (profile.date_joined || profile.joined_date) ? (profile.date_joined || profile.joined_date).split('T')[0] : ''
       });
       setErrors({});
       setServerError('');
@@ -118,12 +122,15 @@ export default function EditProfileModal({ isOpen, onClose, profile, onProfileUp
         dob: formData.dob ? formData.dob.trim() : null,
         gender: formData.gender ? formData.gender.trim() : null,
         nic: formData.nic ? formData.nic.trim() : null,
+        school_attended: formData.school_attended ? formData.school_attended.trim() : null,
+        tshirt_size: formData.tshirt_size ? formData.tshirt_size.trim() : null,
         phone: formData.phone ? formData.phone.trim() : null,
         personal_email: formData.personal_email ? formData.personal_email.trim() : null,
         address: formData.address ? formData.address.trim() : null,
         emp_code: formData.emp_code ? formData.emp_code.trim() : null,
         department: formData.department ? formData.department.trim() : null,
         designation: formData.designation ? formData.designation.trim() : null,
+        card_designation: formData.card_designation ? formData.card_designation.trim() : null,
         joined_date: formData.joined_date ? formData.joined_date.trim() : null
       };
 
@@ -254,6 +261,46 @@ export default function EditProfileModal({ isOpen, onClose, profile, onProfileUp
               />
               {errors.nic && <p className="text-[11px] text-rose-600 font-medium mt-1">{errors.nic}</p>}
             </div>
+
+            {/* School Attended */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                <GraduationCap className="w-3.5 h-3.5 text-indigo-500" />
+                <span>School Attended</span>
+              </label>
+              <input
+                type="text"
+                name="school_attended"
+                value={formData.school_attended}
+                onChange={handleChange}
+                placeholder="e.g. Royal College, Colombo"
+                className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+              />
+            </div>
+
+            {/* T-Shirt Size */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                <Shirt className="w-3.5 h-3.5 text-emerald-500" />
+                <span>T-Shirt Size</span>
+              </label>
+              <select
+                name="tshirt_size"
+                value={formData.tshirt_size}
+                onChange={handleChange}
+                className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white cursor-pointer"
+              >
+                <option value="">Select T-Shirt Size</option>
+                <option value="XS">XS (Extra Small)</option>
+                <option value="S">S (Small)</option>
+                <option value="M">M (Medium)</option>
+                <option value="L">L (Large)</option>
+                <option value="XL">XL (Extra Large)</option>
+                <option value="XXL">XXL (Double Extra Large)</option>
+                <option value="3XL">3XL</option>
+                <option value="4XL">4XL</option>
+              </select>
+            </div>
           </div>
 
           {/* SECTION 2: CONTACT DETAILS */}
@@ -330,11 +377,10 @@ export default function EditProfileModal({ isOpen, onClose, profile, onProfileUp
             </div>
           </div>
 
-          {/* SECTION 3: EMPLOYMENT & COMPANY INFORMATION (ADMIN EDITABLE) */}
+          {/* SECTION 3: EMPLOYMENT & COMPANY INFORMATION */}
           <div className="space-y-4 pt-2">
-            <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-100 pb-1 flex items-center justify-between">
-              <span>Employment Information</span>
-              {!isAdmin && <span className="text-[10px] text-slate-400 font-medium flex items-center gap-1"><Lock className="w-3 h-3" /> Admin Only</span>}
+            <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-100 pb-1">
+              Employment Information
             </h4>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -346,8 +392,8 @@ export default function EditProfileModal({ isOpen, onClose, profile, onProfileUp
                   name="name"
                   value={formData.name}
                   onChange={handleChange}
-                  disabled={!isAdmin}
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 disabled:bg-slate-50 disabled:text-slate-500"
+                  placeholder="e.g. John Doe"
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                 />
               </div>
 
@@ -359,9 +405,8 @@ export default function EditProfileModal({ isOpen, onClose, profile, onProfileUp
                   name="emp_code"
                   value={formData.emp_code}
                   onChange={handleChange}
-                  disabled={!isAdmin}
                   placeholder="e.g. EMP-042"
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 disabled:bg-slate-50 disabled:text-slate-500"
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                 />
               </div>
 
@@ -373,23 +418,21 @@ export default function EditProfileModal({ isOpen, onClose, profile, onProfileUp
                   name="department"
                   value={formData.department}
                   onChange={handleChange}
-                  disabled={!isAdmin}
                   placeholder="e.g. IT, Finance"
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 disabled:bg-slate-50 disabled:text-slate-500"
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                 />
               </div>
 
               {/* Designation */}
               <div>
-                <label className="block text-[11px] font-semibold text-slate-700 mb-1">Designation</label>
+                <label className="block text-[11px] font-semibold text-slate-700 mb-1">Official Designation</label>
                 <input
                   type="text"
                   name="designation"
                   value={formData.designation}
                   onChange={handleChange}
-                  disabled={!isAdmin}
                   placeholder="e.g. Software Engineer"
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 disabled:bg-slate-50 disabled:text-slate-500"
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                 />
               </div>
 
@@ -401,9 +444,8 @@ export default function EditProfileModal({ isOpen, onClose, profile, onProfileUp
                   name="card_designation"
                   value={formData.card_designation}
                   onChange={handleChange}
-                  disabled={!isAdmin}
                   placeholder="e.g. Senior Software Engineer"
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 disabled:bg-slate-50 disabled:text-slate-500"
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                 />
               </div>
 
@@ -415,8 +457,7 @@ export default function EditProfileModal({ isOpen, onClose, profile, onProfileUp
                   name="joined_date"
                   value={formData.joined_date}
                   onChange={handleChange}
-                  disabled={!isAdmin}
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 disabled:bg-slate-50 disabled:text-slate-500"
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                 />
               </div>
             </div>
