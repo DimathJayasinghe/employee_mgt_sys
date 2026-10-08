@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import API from '../api';
 import { ClipboardList, Plus, Ban, AlertTriangle, CheckCircle2, X, Clock } from 'lucide-react';
-import { getLeaveCancellationStatus } from '../services/supabaseService';
+import { getLeaveCancellationStatus } from '../utils/leaveUtils';
 
 export default function LeaveHistoryView({ userId, onOpenApplyLeave, onLeaveCancelled }) {
   const [leaves, setLeaves] = useState([]);

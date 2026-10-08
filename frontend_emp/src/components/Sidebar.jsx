@@ -1,4 +1,5 @@
 import React from 'react';
+import logoImg from '../assets/logo.png';
 import { 
   LayoutDashboard, 
   Briefcase, 
@@ -6,7 +7,8 @@ import {
   ClipboardList, 
   FileText,
   LogOut,
-  X
+  X,
+  User
 } from 'lucide-react';
 
 export default function Sidebar({ activeTab, setActiveTab, onOpenApplyLeave, user, onLogout, isMobileOpen, setIsMobileOpen }) {
@@ -40,7 +42,7 @@ export default function Sidebar({ activeTab, setActiveTab, onOpenApplyLeave, use
           <div className="flex items-center justify-between mb-8 px-1">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center p-1.5 shadow-md shrink-0">
-                <img src="/logo.png" alt="P W Holdings Logo" className="w-full h-full object-contain" />
+                <img src={logoImg} alt="P W Holdings Logo" className="w-full h-full object-contain" onError={(e) => { e.currentTarget.src = '/logo.png'; }} />
               </div>
               <div>
                 <h1 className="text-white font-bold text-lg leading-snug tracking-tight">P W Holdings</h1>
@@ -83,6 +85,18 @@ export default function Sidebar({ activeTab, setActiveTab, onOpenApplyLeave, use
               >
                 <Briefcase className="w-4 h-4" />
                 <span>Today's Work</span>
+              </button>
+
+              <button
+                onClick={() => handleNavClick('profile')}
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                  activeTab === 'profile'
+                    ? 'bg-[#152a4a] text-white shadow-sm border border-slate-700/60'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-[#0c1f3a]'
+                }`}
+              >
+                <User className="w-4 h-4" />
+                <span>My Profile</span>
               </button>
             </nav>
           </div>
@@ -134,10 +148,18 @@ export default function Sidebar({ activeTab, setActiveTab, onOpenApplyLeave, use
 
         {/* Bottom Profile Card */}
         <div className="p-4 border-t border-slate-800/80">
-          <div className="bg-[#0c1f3a] rounded-2xl p-3 flex items-center justify-between border border-slate-800/90 shadow-sm">
+          <div 
+            onClick={() => handleNavClick('profile')}
+            className="bg-[#0c1f3a] rounded-2xl p-3 flex items-center justify-between border border-slate-800/90 shadow-sm cursor-pointer hover:bg-[#152a4a] transition-colors"
+            title="View My Profile"
+          >
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-9 h-9 rounded-full bg-slate-100 text-[#07162c] font-bold text-xs flex items-center justify-center shrink-0 shadow-inner">
-                {user?.initials || (user?.name ? user.name.slice(0, 2).toUpperCase() : 'EP')}
+              <div className="w-9 h-9 rounded-full bg-slate-100 text-[#07162c] font-bold text-xs flex items-center justify-center shrink-0 shadow-inner overflow-hidden">
+                {user?.photo_url ? (
+                  <img src={user.photo_url} alt={user.name} className="w-full h-full object-cover" />
+                ) : (
+                  user?.initials || (user?.name ? user.name.slice(0, 2).toUpperCase() : 'EP')
+                )}
               </div>
               <div className="min-w-0">
                 <h4 className="text-white text-xs font-semibold truncate leading-tight">
@@ -146,7 +168,7 @@ export default function Sidebar({ activeTab, setActiveTab, onOpenApplyLeave, use
               </div>
             </div>
             <button 
-              onClick={onLogout}
+              onClick={(e) => { e.stopPropagation(); onLogout(); }}
               title="Log out"
               className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
             >

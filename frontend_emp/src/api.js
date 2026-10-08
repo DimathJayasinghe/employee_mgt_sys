@@ -1,161 +1,90 @@
-import { authService, dashboardService, adminService } from './services/supabaseService';
+// Centralized API Client connecting exclusively to Backend API Gateway
+const API_BASE_URL = import.meta.env.VITE_API_URL || (
+  window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? 'http://localhost:5000/api'
+    : '/api'
+);
 
-// Helper to extract query parameters from URL string
-function parseQueryParams(url) {
-  const queryIndex = url.indexOf('?');
-  if (queryIndex === -1) return {};
-  const queryString = url.slice(queryIndex + 1);
-  const params = {};
-  new URLSearchParams(queryString).forEach((val, key) => {
-    params[key] = val;
-  });
-  return params;
+// Helper to get stored auth token
+function getAuthToken() {
+  try {
+    const storedUser = localStorage.getItem('emp_mgt_user');
+    if (storedUser) {
+      const parsed = JSON.parse(storedUser);
+      return parsed.token || parsed.id || null;
+    }
+  } catch (e) {
+    // Ignore JSON parse errors
+  }
+  return null;
 }
 
-// Clean endpoint path by removing base and query string
-function cleanPath(url) {
-  let path = url.replace(/^https?:\/\/[^/]+/, ''); // remove origin if present
-  path = path.replace(/^\/api/, ''); // remove leading /api
-  const queryIndex = path.indexOf('?');
-  if (queryIndex !== -1) {
-    path = path.substring(0, queryIndex);
+// Universal fetch wrapper
+async function request(endpoint, options = {}) {
+  const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  const url = `${API_BASE_URL}${cleanEndpoint}`;
+
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(options.headers || {})
+  };
+
+  const token = getAuthToken();
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
   }
-  if (!path.startsWith('/')) {
-    path = '/' + path;
+
+  const config = {
+    ...options,
+    headers
+  };
+
+  if (config.body && typeof config.body === 'object') {
+    config.body = JSON.stringify(config.body);
   }
-  return path;
+
+  try {
+    const response = await fetch(url, config);
+    const contentType = response.headers.get('content-type');
+    let data = null;
+
+    if (contentType && contentType.includes('application/json')) {
+      data = await response.json();
+    } else {
+      data = await response.text();
+    }
+
+    if (!response.ok) {
+      const errorMsg = (typeof data === 'object' && data?.error) ? data.error : response.statusText || 'Request failed';
+      const error = new Error(errorMsg);
+      error.response = { data, status: response.status };
+      throw error;
+    }
+
+    return { data, status: response.status };
+  } catch (err) {
+    if (!err.response) {
+      err.response = { data: { error: err.message || 'Network error occurred' }, status: 500 };
+    }
+    throw err;
+  }
 }
 
-// Direct Supabase API Adapter conforming to Axios-like interface
 const API = {
-  async get(url) {
-    const path = cleanPath(url);
-    const params = parseQueryParams(url);
-
-    try {
-      if (path === '/dashboard/summary') {
-        const userId = params.user_id;
-        const data = await dashboardService.getDashboardSummary(userId);
-        return { data };
-      }
-
-      if (path === '/work-entry/history') {
-        const userId = params.user_id;
-        const data = await dashboardService.getWorkHistory(userId);
-        return { data: data?.entries || data || [] };
-      }
-
-      if (path === '/leave/history') {
-        const userId = params.user_id;
-        const data = await dashboardService.getLeaveHistory(userId);
-        return { data: data?.requests || data || [] };
-      }
-
-      if (path === '/admin/summary') {
-        const data = await adminService.getAdminSummary();
-        return { data };
-      }
-
-      if (path === '/admin/employees') {
-        const data = await adminService.getAdminEmployees();
-        return { data: data?.employees || data || [] };
-      }
-
-      if (path === '/admin/work-activity') {
-        const data = await adminService.getAdminWorkActivity();
-        return { data: data?.activities || data || [] };
-      }
-
-      if (path === '/admin/leave-calendar') {
-        const year = parseInt(params.year) || new Date().getFullYear();
-        const month = parseInt(params.month) || (new Date().getMonth() + 1);
-        const data = await adminService.getAdminLeaveCalendar(year, month);
-        return { data: data?.leaves || data || [] };
-      }
-
-      throw new Error(`Unhandled GET route: ${path}`);
-    } catch (err) {
-      console.error(`API GET error on ${url}:`, err);
-      const customErr = new Error(err.message || 'API request failed');
-      customErr.response = { data: { error: err.message || 'API request failed' }, status: 500 };
-      throw customErr;
-    }
+  get(url, options = {}) {
+    return request(url, { ...options, method: 'GET' });
   },
-
-  async post(url, body = {}) {
-    const path = cleanPath(url);
-
-    try {
-      if (path === '/auth/login') {
-        const data = await authService.login(body.email, body.password);
-        return { data };
-      }
-
-      if (path === '/auth/send-otp') {
-        const data = await authService.sendOtp(body.email, body.type);
-        return { data };
-      }
-
-      if (path === '/auth/verify-otp-register') {
-        const data = await authService.verifyOtpRegister(body);
-        return { data };
-      }
-
-      if (path === '/auth/verify-otp-reset-password') {
-        const data = await authService.verifyOtpResetPassword(body);
-        return { data };
-      }
-
-      if (path === '/work-entry') {
-        const data = await dashboardService.saveWorkEntry(body.user_id, body.work_description);
-        return { data };
-      }
-
-      if (path === '/leave/apply') {
-        const data = await dashboardService.applyLeave(body);
-        return { data };
-      }
-
-      if (path === '/leave/cancel') {
-        const data = await dashboardService.cancelLeave(body.id, body.user_id);
-        return { data };
-      }
-
-      if (path === '/admin/leave/approve') {
-        const data = await adminService.approveLeave(body.id);
-        return { data };
-      }
-
-      if (path === '/admin/leave/reject') {
-        const data = await adminService.rejectLeave(body.id);
-        return { data };
-      }
-
-      throw new Error(`Unhandled POST route: ${path}`);
-    } catch (err) {
-      console.error(`API POST error on ${url}:`, err);
-      const customErr = new Error(err.message || 'API request failed');
-      customErr.response = { data: { error: err.message || 'API request failed' }, status: 400 };
-      throw customErr;
-    }
+  post(url, body, options = {}) {
+    return request(url, { ...options, method: 'POST', body });
   },
-
-  async patch(url, body = {}) {
-    const path = cleanPath(url);
-
-    try {
-      if (path === '/user/status') {
-        const data = await dashboardService.updateUserStatus(body.user_id, body.status);
-        return { data };
-      }
-
-      throw new Error(`Unhandled PATCH route: ${path}`);
-    } catch (err) {
-      console.error(`API PATCH error on ${url}:`, err);
-      const customErr = new Error(err.message || 'API request failed');
-      customErr.response = { data: { error: err.message || 'API request failed' }, status: 400 };
-      throw customErr;
-    }
+  put(url, body, options = {}) {
+    return request(url, { ...options, method: 'PUT', body });
+  },
+  patch(url, body, options = {}) {
+    return request(url, { ...options, method: 'PATCH', body });
+  },
+  delete(url, options = {}) {
+    return request(url, { ...options, method: 'DELETE' });
   }
 };
 

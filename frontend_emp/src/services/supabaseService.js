@@ -10,12 +10,43 @@ const ADMIN_EMAILS = [
 // In-memory OTP storage for registration and password resets
 const otpStore = {};
 
+const TIMEZONE = 'Asia/Colombo';
+
+function getNowColombo() {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23'
+  }).formatToParts(new Date());
+
+  const map = {};
+  parts.forEach(p => { map[p.type] = p.value; });
+  const year = parseInt(map.year, 10);
+  const month = parseInt(map.month, 10);
+  const day = parseInt(map.day, 10);
+  const hour = parseInt(map.hour, 10);
+  const minute = parseInt(map.minute, 10);
+  const second = parseInt(map.second, 10);
+
+  return {
+    year,
+    month,
+    day,
+    dateStr: `${map.year}-${map.month}-${map.day}`,
+    hour,
+    minute,
+    second,
+    totalMinutes: hour * 60 + minute
+  };
+}
+
 function getTodayStr() {
-  const d = new Date();
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  return getNowColombo().dateStr;
 }
 
 function getInitials(name) {
@@ -54,8 +85,8 @@ function getHalfDayDetails(activeLeave) {
     session = 'Morning';
   }
 
-  const now = new Date();
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const nowInfo = getNowColombo();
+  const currentMinutes = nowInfo.totalMinutes;
   const cutoffMinutes = 12 * 60 + 30; // 12:30 PM
   const isMorningNow = currentMinutes < cutoffMinutes;
 
@@ -101,8 +132,8 @@ function getShortLeaveDetails(activeLeave) {
     }
   }
 
-  const now = new Date();
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const nowInfo = getNowColombo();
+  const currentMinutes = nowInfo.totalMinutes;
 
   const [sH, sM] = startTime.split(':').map(Number);
   const [eH, eM] = endTime.split(':').map(Number);
@@ -176,10 +207,11 @@ export function getLeaveCancellationStatus(leave) {
 
   const [year, month, day] = startDateStr.split('-').map(Number);
   const [hour, minute, second] = cutoffTimeStr.split(':').map(Number);
-  const cutoffDate = new Date(year, month - 1, day, hour, minute || 0, second || 0);
+  // Asia/Colombo is UTC+05:30 -> subtract 5h 30m to get UTC timestamp
+  const cutoffUtcMs = Date.UTC(year, month - 1, day, hour - 5, (minute || 0) - 30, second || 0);
 
-  const now = new Date();
-  if (now.getTime() > cutoffDate.getTime()) {
+  const nowMs = Date.now();
+  if (nowMs > cutoffUtcMs) {
     return {
       canCancel: false,
       isExpired: true,
@@ -423,19 +455,45 @@ export const dashboardService = {
 
     const todayEntry = entries && entries.length > 0 ? entries[0].work_description : '';
 
-    // 3. Fetch Leave Balances
+    // 3. Fetch Leave Balances & Calculate Accurate Used Days for Casual (7) and Annual (14)
+    const { data: allApprovedUserLeaves } = await supabase
+      .from('leave_requests')
+      .select('leave_type, days_count')
+      .eq('user_id', userId)
+      .eq('status', 'Approved');
+
+    const approvedList = allApprovedUserLeaves || [];
+    
+    // Casual Leave: 7 days allocated
+    const casualTotal = 7;
+    const casualUsed = approvedList
+      .filter(l => l.leave_type && (l.leave_type === 'Casual Leave' || l.leave_type.toLowerCase().includes('casual')))
+      .reduce((sum, l) => sum + parseFloat(l.days_count || 0), 0);
+    const casualAvailable = Math.max(0, casualTotal - casualUsed);
+
+    // Annual Leave: 14 days allocated (Medical Leave, Half Day, Short Leave, Special Leave, Study Leave)
+    const annualKeywords = ['medical', 'half day', 'short leave', 'special', 'study'];
+    const annualTotal = 14;
+    const annualUsed = approvedList
+      .filter(l => l.leave_type && annualKeywords.some(kw => l.leave_type.toLowerCase().includes(kw)))
+      .reduce((sum, l) => sum + parseFloat(l.days_count || 0), 0);
+    const annualAvailable = Math.max(0, annualTotal - annualUsed);
+
+    const totalDays = casualTotal + annualTotal; // 21
+    const totalUsed = casualUsed + annualUsed;
+    const totalAvailable = casualAvailable + annualAvailable;
+
+    // Auto-heal leave_balances table if desynchronized
     const { data: balances } = await supabase
       .from('leave_balances')
       .select('total_days, used_days')
       .eq('user_id', userId);
 
-    const balance = (balances && balances.length > 0) 
-      ? balances[0] 
-      : { total_days: 24, used_days: 0 };
-
-    const totalDays = parseFloat(balance.total_days || 24);
-    const usedDays = parseFloat(balance.used_days || 0);
-    const available_days = Math.max(0, totalDays - usedDays);
+    if (!balances || balances.length === 0) {
+      supabase.from('leave_balances').insert([{ user_id: userId, total_days: totalDays, used_days: totalUsed }]).then(() => {});
+    } else if (parseFloat(balances[0].used_days || 0) !== totalUsed || parseFloat(balances[0].total_days || 0) !== totalDays) {
+      supabase.from('leave_balances').update({ total_days: totalDays, used_days: totalUsed }).eq('user_id', userId).then(() => {});
+    }
 
     // 4. Fetch Active Approved Leave for Today
     const { data: activeLeavesToday } = await supabase
@@ -501,8 +559,19 @@ export const dashboardService = {
       todayWork: todayEntry,
       leaveBalance: {
         total_days: totalDays,
-        used_days: usedDays,
-        available_days: available_days
+        used_days: totalUsed,
+        available_days: totalAvailable,
+        casual: {
+          total_days: casualTotal,
+          used_days: casualUsed,
+          available_days: casualAvailable
+        },
+        annual: {
+          total_days: annualTotal,
+          used_days: annualUsed,
+          available_days: annualAvailable,
+          included_types: ['Medical Leave', 'Half Day', 'Short Leave', 'Special Leave', 'Study Leave']
+        }
       },
       recentLeaveRequests: leaves || []
     };
@@ -739,6 +808,18 @@ export const adminService = {
       .eq('status', 'Pending')
       .order('created_at', { ascending: false });
 
+    // 5. Fetch upcoming approved leave requests with employee details
+    const { data: upcomingRequests } = await supabase
+      .from('leave_requests')
+      .select(`
+        id, leave_type, start_date, end_date, days_count, day_of_week, 
+        start_time, end_time, special_session, is_recurring, reason, status, created_at, user_id,
+        users (id, name, department, email)
+      `)
+      .eq('status', 'Approved')
+      .gt('start_date', todayStr)
+      .order('start_date', { ascending: true });
+
     // Format workforce and categories
     const workingWorkforce = [];
     const todaysLeave = [];
@@ -912,6 +993,36 @@ export const adminService = {
             : `${r.days_count} ${r.days_count === 1 ? 'day' : 'days'}`
     }));
 
+    const upcomingFormatted = (upcomingRequests || []).map(r => ({
+      id: r.id,
+      user_id: r.user_id,
+      employee_name: r.users?.name || 'Employee',
+      initials: r.users?.initials || (r.users?.name ? r.users.name.slice(0, 2).toUpperCase() : 'EM'),
+      department: r.users?.department || 'General',
+      email: r.users?.email || '',
+      leave_type: r.leave_type,
+      from_date: r.start_date ? r.start_date.split('T')[0] : '',
+      to_date: r.end_date ? r.end_date.split('T')[0] : '',
+      days_count: r.days_count,
+      day_of_week: r.day_of_week,
+      start_time: r.start_time,
+      end_time: r.end_time,
+      special_session: r.special_session,
+      is_recurring: r.is_recurring,
+      reason: r.reason,
+      status: r.status,
+      applied_date: r.created_at ? r.created_at.split('T')[0] : '',
+      duration: r.leave_type === 'Special Leave' && r.day_of_week
+        ? formatSpecialDays(r.day_of_week)
+        : (r.leave_type === 'Short Leave' && r.start_time && r.end_time)
+          ? `${formatTime12(r.start_time)} - ${formatTime12(r.end_time)}`
+          : (r.leave_type === 'Half Day' && r.start_time && r.end_time)
+            ? `${r.start_time} - ${r.end_time} (${r.days_count} day)`
+            : (r.start_date && r.end_date && r.start_date.split('T')[0] === r.end_date.split('T')[0]
+                ? `${r.days_count || 1} day (${r.start_date.split('T')[0]})`
+                : `${r.days_count} days (${r.start_date ? r.start_date.split('T')[0] : ''} to ${r.end_date ? r.end_date.split('T')[0] : ''})`)
+    }));
+
     return {
       stats: {
         total_employees: (allUsers || []).length,
@@ -920,7 +1031,8 @@ export const adminService = {
         half_day: halfDayCount,
         study_leave: studyLeaveCount,
         special_leave: specialLeaveCount,
-        pending_requests: pendingFormatted.length
+        pending_requests: pendingFormatted.length,
+        upcoming_leaves: upcomingFormatted.length
       },
       workingWorkforce,
       todaysLeave,
@@ -928,6 +1040,7 @@ export const adminService = {
       studyLeaveEmployees,
       specialLeaveEmployees,
       pendingLeaveRequests: pendingFormatted,
+      upcomingLeaves: upcomingFormatted,
       allEmployees: (allUsers || []).map(u => {
         const activeLeave = leaveMap[u.id];
         const todayWork = workMap[u.id] || '';
@@ -1145,7 +1258,7 @@ export const adminService = {
     return { leaves: formatted };
   },
 
-  async approveLeave(id) {
+  async approveLeave(id, adminEmail = null) {
     if (!id) throw new Error('id is required');
     const todayStr = getTodayStr();
 
@@ -1159,8 +1272,53 @@ export const adminService = {
       throw new Error('Leave request not found');
     }
     const lReq = requests[0];
+    if (lReq.status === 'Approved') throw new Error('Leave is already approved');
 
-    // 2. Update leave request to Approved
+    // 2. Check if over-quota request requires Senior Admin approval
+    const { data: userApprovedLeaves } = await supabase
+      .from('leave_requests')
+      .select('leave_type, days_count')
+      .eq('user_id', lReq.user_id)
+      .eq('status', 'Approved');
+
+    const leaveType = lReq.leave_type || '';
+    const isCasual = leaveType === 'Casual Leave' || leaveType.toLowerCase().includes('casual');
+    const isPowerCut = leaveType === 'Power Cut';
+
+    if (!isPowerCut) {
+      const casualTotal = 7;
+      const annualTotal = 14;
+      const annualKeywords = ['medical', 'half day', 'short leave', 'special', 'study'];
+
+      const approvedList = userApprovedLeaves || [];
+      const casualUsed = approvedList
+        .filter(l => l.leave_type && (l.leave_type === 'Casual Leave' || l.leave_type.toLowerCase().includes('casual')))
+        .reduce((sum, l) => sum + parseFloat(l.days_count || 0), 0);
+      const casualAvailable = Math.max(0, casualTotal - casualUsed);
+
+      const annualUsed = approvedList
+        .filter(l => l.leave_type && annualKeywords.some(kw => l.leave_type.toLowerCase().includes(kw)))
+        .reduce((sum, l) => sum + parseFloat(l.days_count || 0), 0);
+      const annualAvailable = Math.max(0, annualTotal - annualUsed);
+
+      const currentAvailable = isCasual ? casualAvailable : annualAvailable;
+      const isOverQuota = currentAvailable <= 0 || (currentAvailable - parseFloat(lReq.days_count || 1)) < 0;
+
+      if (isOverQuota) {
+        const normalizedEmail = (adminEmail || '').trim().toLowerCase();
+        const AUTHORIZED_SENIOR_ADMINS = [
+          'channet@pwholdings.lk',
+          'nishadi@pwholdings.lk',
+          'hashan@pwholdings.lk'
+        ];
+
+        if (!normalizedEmail || !AUTHORIZED_SENIOR_ADMINS.includes(normalizedEmail)) {
+          throw new Error('Over-quota leave requests can only be approved by authorized Senior Admins (channet@pwholdings.lk, nishadi@pwholdings.lk, hashan@pwholdings.lk).');
+        }
+      }
+    }
+
+    // 3. Update leave request to Approved
     await supabase
       .from('leave_requests')
       .update({ status: 'Approved' })

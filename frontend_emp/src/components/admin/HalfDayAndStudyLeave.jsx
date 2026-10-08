@@ -37,8 +37,12 @@ export default function HalfDayAndStudyLeave({ halfDayList = [], studyLeaveList 
                   <div key={emp.id || Math.random()} className="border border-slate-200/80 bg-slate-50/50 rounded-2xl p-4 transition-all hover:bg-slate-50">
                     <div className="flex items-start justify-between gap-2 mb-2">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-900 font-bold text-xs flex items-center justify-center shrink-0 border border-amber-200/60 shadow-2xs">
-                          {emp.initials}
+                        <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-900 font-bold text-xs flex items-center justify-center shrink-0 border border-amber-200/60 shadow-2xs overflow-hidden">
+                          {emp.photo_url ? (
+                            <img src={emp.photo_url} alt={emp.name} className="w-full h-full object-cover" />
+                          ) : (
+                            emp.initials || (emp.name ? emp.name.slice(0, 2).toUpperCase() : 'EP')
+                          )}
                         </div>
                         <div>
                           <h4 className="font-bold text-slate-900 text-sm">{emp.name}</h4>
@@ -117,8 +121,12 @@ export default function HalfDayAndStudyLeave({ halfDayList = [], studyLeaveList 
                 <div key={studyLeave.id || Math.random()} className="bg-[#eaf4fd] border border-blue-200/70 rounded-2xl p-6 relative overflow-hidden">
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full bg-blue-100 text-blue-900 font-bold text-xs flex items-center justify-center border border-blue-200 shrink-0">
-                        {studyLeave.initials}
+                      <div className="w-9 h-9 rounded-full bg-blue-100 text-blue-900 font-bold text-xs flex items-center justify-center border border-blue-200 shrink-0 overflow-hidden">
+                        {studyLeave.photo_url ? (
+                          <img src={studyLeave.photo_url} alt={studyLeave.name} className="w-full h-full object-cover" />
+                        ) : (
+                          studyLeave.initials || (studyLeave.name ? studyLeave.name.slice(0, 2).toUpperCase() : 'EP')
+                        )}
                       </div>
                       <div>
                         <h4 className="font-bold text-slate-900 text-base">{studyLeave.name}</h4>

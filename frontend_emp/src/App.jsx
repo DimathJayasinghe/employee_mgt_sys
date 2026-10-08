@@ -9,11 +9,14 @@ import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import GreetingBanner from './components/GreetingBanner';
 import DailyWorkCard from './components/DailyWorkCard';
+import LeaveBalanceCard from './components/LeaveBalanceCard';
+import TeamDutyStatusCard from './components/TeamDutyStatusCard';
 import RecentLeaveRequestsCard from './components/RecentLeaveRequestsCard';
 import ApplyLeaveModal from './components/ApplyLeaveModal';
 import WorkHistoryView from './components/WorkHistoryView';
 import LeaveHistoryView from './components/LeaveHistoryView';
 import VisitFormView from './components/VisitFormView';
+import EmployeeProfileView from './components/EmployeeProfileView';
 
 // Admin Dashboard Components
 import AdminSidebar from './components/admin/AdminSidebar';
@@ -23,8 +26,11 @@ import TodaysWorkforceTable from './components/admin/TodaysWorkforceTable';
 import TodaysLeaveCards from './components/admin/TodaysLeaveCards';
 import HalfDayAndStudyLeave from './components/admin/HalfDayAndStudyLeave';
 import PendingLeaveRequestsTable from './components/admin/PendingLeaveRequestsTable';
+import AllLeavesTable from './components/admin/AllLeavesTable';
 import AdminAllEmployeesView from './components/admin/AdminAllEmployeesView';
+import AdminAddEmployeeView from './components/admin/AdminAddEmployeeView';
 import AdminWorkActivityView from './components/admin/AdminWorkActivityView';
+import AdminClientAnalyticsView from './components/admin/AdminClientAnalyticsView';
 import LeaveCalendarView from './components/admin/LeaveCalendarView';
 
 export default function App() {
@@ -49,7 +55,13 @@ export default function App() {
     status: 'Working'
   });
   const [todayWork, setTodayWork] = useState('');
-  const [leaveBalance, setLeaveBalance] = useState({ total_days: 24, used_days: 0, available_days: 24 });
+  const [leaveBalance, setLeaveBalance] = useState({
+    total_days: 21,
+    used_days: 0,
+    available_days: 21,
+    casual: { total_days: 7, used_days: 0, available_days: 7 },
+    annual: { total_days: 14, used_days: 0, available_days: 14 }
+  });
   const [recentLeaveRequests, setRecentLeaveRequests] = useState([]);
   const [isApplyLeaveOpen, setIsApplyLeaveOpen] = useState(false);
 
@@ -66,13 +78,17 @@ export default function App() {
     on_leave_today: 0,
     half_day: 0,
     study_leave: 0,
-    pending_requests: 0
+    pending_requests: 0,
+    upcoming_leaves: 0
   });
   const [workingWorkforce, setWorkingWorkforce] = useState([]);
   const [todaysLeave, setTodaysLeave] = useState([]);
   const [halfDayEmployees, setHalfDayEmployees] = useState([]);
   const [studyLeaveEmployees, setStudyLeaveEmployees] = useState([]);
+  const [specialLeaveEmployees, setSpecialLeaveEmployees] = useState([]);
   const [pendingLeaveRequests, setPendingLeaveRequests] = useState([]);
+  const [upcomingLeaves, setUpcomingLeaves] = useState([]);
+  const [allLeaves, setAllLeaves] = useState([]);
   const [allEmployees, setAllEmployees] = useState([]);
 
   // On mount: if a saved session exists, restore the correct view
@@ -97,7 +113,7 @@ export default function App() {
     } else if (currentView === 'employee' && currentUser?.id) {
       fetchEmployeeSummary(currentUser.id);
     }
-  }, [currentView]);
+  }, [currentView, activeTab]);
 
   const fetchAdminSummary = async () => {
     try {
@@ -109,7 +125,10 @@ export default function App() {
         if (res.data.todaysLeave) setTodaysLeave(res.data.todaysLeave);
         if (res.data.halfDayEmployees) setHalfDayEmployees(res.data.halfDayEmployees);
         if (res.data.studyLeaveEmployees) setStudyLeaveEmployees(res.data.studyLeaveEmployees);
+        if (res.data.specialLeaveEmployees) setSpecialLeaveEmployees(res.data.specialLeaveEmployees);
         if (res.data.pendingLeaveRequests) setPendingLeaveRequests(res.data.pendingLeaveRequests);
+        if (res.data.upcomingLeaves) setUpcomingLeaves(res.data.upcomingLeaves);
+        if (res.data.allLeaves) setAllLeaves(res.data.allLeaves);
         if (res.data.allEmployees) setAllEmployees(res.data.allEmployees);
       }
     } catch (err) {
@@ -137,6 +156,8 @@ export default function App() {
         if (res.data.todayWork !== undefined) setTodayWork(res.data.todayWork);
         if (res.data.leaveBalance) setLeaveBalance(res.data.leaveBalance);
         if (res.data.recentLeaveRequests) setRecentLeaveRequests(res.data.recentLeaveRequests);
+        if (res.data.workingWorkforce) setWorkingWorkforce(res.data.workingWorkforce);
+        if (res.data.todaysLeave) setTodaysLeave(res.data.todaysLeave);
       }
     } catch (err) {
       console.error('Failed to load employee summary:', err);
@@ -168,10 +189,12 @@ export default function App() {
   // Admin Actions
   const handleApproveLeave = async (id) => {
     try {
-      await API.post('/admin/leave/approve', { id });
+      await API.post('/admin/leave/approve', { id, admin_email: currentUser?.email });
       await fetchAdminSummary();
     } catch (err) {
       console.error('Failed to approve leave:', err);
+      const msg = err.response?.data?.error || err.message || 'Failed to approve leave request';
+      alert(`⚠️ Approval Restricted:\n${msg}`);
     }
   };
 
@@ -185,11 +208,11 @@ export default function App() {
   };
 
   // Employee Actions
-  const handleSaveWork = async (newDescription) => {
+  const handleSaveWork = async (newDescription, clients = []) => {
     if (!currentUser?.id) return;
     try {
-      await API.post('/work-entry', { user_id: currentUser.id, work_description: newDescription });
-      setTodayWork(newDescription);
+      const res = await API.post('/work-entry', { user_id: currentUser.id, work_description: newDescription, clients });
+      setTodayWork(res.data?.work_description || newDescription);
     } catch (err) {
       console.error('Failed to save work entry:', err);
     }
@@ -223,18 +246,30 @@ export default function App() {
     setIsMobileOpen(false);
   };
 
+  const [selectedEmployee, setSelectedEmployee] = useState(null);
+
+  // Helper for selecting an employee to view profile
+  const handleSelectEmployee = (emp) => {
+    setSelectedEmployee(emp);
+    setActiveTab('profile');
+  };
+
   const adminTitles = {
     'admin-dashboard': 'Dashboard',
     'all-employees': 'All Employees',
+    'add-employee': 'Add New Employee',
     'work-activity': 'Work Activity',
+    'client-analytics': 'Client Analytics',
     'admin-leave-requests': 'Leave Requests',
     'leave-calendar': 'Leave Calendar',
-    'settings': 'System Settings'
+    'settings': 'System Settings',
+    'profile': 'Employee Profile'
   };
 
   const employeeTitles = {
     'dashboard': 'Dashboard',
     'work-history': "Today's Work Log",
+    'profile': 'Employee Profile',
     'leave-history': 'My Leave History',
     'visit-form': 'Visiting Form'
   };
@@ -250,7 +285,12 @@ export default function App() {
       <div className="flex min-h-screen bg-[#f4f6fa] text-slate-800 font-sans antialiased">
         <AdminSidebar
           activeTab={activeTab}
-          setActiveTab={setActiveTab}
+          setActiveTab={(tab) => {
+            if (tab === 'profile' && !selectedEmployee) {
+              setSelectedEmployee(null);
+            }
+            setActiveTab(tab);
+          }}
           adminUser={adminUser}
           onLogout={handleLogout}
           isMobileOpen={isMobileOpen}
@@ -284,7 +324,9 @@ export default function App() {
                   todaysLeave={todaysLeave}
                   halfDayEmployees={halfDayEmployees}
                   studyLeaveEmployees={studyLeaveEmployees}
+                  specialLeaveEmployees={specialLeaveEmployees}
                   pendingLeaveRequests={pendingLeaveRequests}
+                  upcomingLeaves={upcomingLeaves}
                   allEmployees={allEmployees}
                   onNavigateTab={setActiveTab}
                 />
@@ -296,6 +338,7 @@ export default function App() {
                 />
                 <PendingLeaveRequestsTable
                   requests={pendingLeaveRequests}
+                  currentUser={currentUser}
                   onApprove={handleApproveLeave}
                   onReject={handleRejectLeave}
                   onViewAll={() => setActiveTab('admin-leave-requests')}
@@ -303,27 +346,44 @@ export default function App() {
               </div>
             )}
 
-            {activeTab === 'all-employees' && <AdminAllEmployeesView />}
+            {activeTab === 'all-employees' && <AdminAllEmployeesView employees={allEmployees} onSelectEmployee={handleSelectEmployee} />}
+
+            {activeTab === 'add-employee' && <AdminAddEmployeeView />}
 
             {activeTab === 'admin-leave-requests' && (
               <div className="max-w-7xl mx-auto space-y-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <h2 className="text-xl font-bold text-slate-900">Leave Requests Management</h2>
-                    <p className="text-xs text-slate-500 mt-0.5">Review, approve, or reject employee leave applications.</p>
+                    <p className="text-xs text-slate-500 mt-0.5">Review, approve, or reject employee leave applications, and inspect complete leave history.</p>
                   </div>
                 </div>
                 <PendingLeaveRequestsTable
                   requests={pendingLeaveRequests}
+                  currentUser={currentUser}
                   onApprove={handleApproveLeave}
                   onReject={handleRejectLeave}
                 />
+                <AllLeavesTable leaves={allLeaves} />
               </div>
             )}
 
-            {activeTab === 'work-activity' && <AdminWorkActivityView />}
+            {activeTab === 'work-activity' && <AdminWorkActivityView onSelectEmployee={handleSelectEmployee} />}
+
+            {activeTab === 'client-analytics' && <AdminClientAnalyticsView />}
 
             {activeTab === 'leave-calendar' && <LeaveCalendarView />}
+
+            {activeTab === 'profile' && (
+              <EmployeeProfileView 
+                onBack={() => {
+                  setSelectedEmployee(null);
+                  setActiveTab('admin-dashboard');
+                }} 
+                user={selectedEmployee || currentUser || adminUser}
+                onSelectEmployee={handleSelectEmployee}
+              />
+            )}
 
             {activeTab === 'settings' && (
               <div className="bg-white rounded-2xl p-6 sm:p-12 text-center border border-slate-200 shadow-xs max-w-4xl mx-auto">
@@ -342,7 +402,12 @@ export default function App() {
     <div className="flex min-h-screen bg-[#f4f6fa] text-slate-800 font-sans antialiased">
       <Sidebar
         activeTab={activeTab}
-        setActiveTab={setActiveTab}
+        setActiveTab={(tab) => {
+          if (tab === 'profile') {
+            setSelectedEmployee(null);
+          }
+          setActiveTab(tab);
+        }}
         onOpenApplyLeave={() => setIsApplyLeaveOpen(true)}
         user={user}
         onLogout={handleLogout}
@@ -356,6 +421,14 @@ export default function App() {
           user={user}
           onToggleViewMode={currentUser?.role === 'Admin' ? toggleViewMode : undefined}
           onMenuClick={() => setIsMobileOpen(true)}
+          onNavigateTab={(tab) => {
+            if (tab === 'profile') {
+              setSelectedEmployee(null);
+            }
+            setActiveTab(tab);
+          }}
+          onLogout={handleLogout}
+          onSelectEmployee={handleSelectEmployee}
         />
 
         <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
@@ -364,14 +437,33 @@ export default function App() {
               <div className="lg:col-span-8 space-y-6">
                 <GreetingBanner user={user} onUpdateStatus={handleUpdateStatus} />
                 <DailyWorkCard initialWork={todayWork} onSaveWork={handleSaveWork} />
+                <TeamDutyStatusCard 
+                  workingWorkforce={workingWorkforce}
+                  todaysLeave={todaysLeave}
+                />
               </div>
               <div className="lg:col-span-4 space-y-6">
+                <LeaveBalanceCard 
+                  leaveBalance={leaveBalance} 
+                  onOpenApplyLeave={() => setIsApplyLeaveOpen(true)} 
+                />
                 <RecentLeaveRequestsCard requests={recentLeaveRequests} />
               </div>
             </div>
           )}
 
           {activeTab === 'work-history' && <WorkHistoryView userId={currentUser?.id} />}
+
+          {activeTab === 'profile' && (
+            <EmployeeProfileView 
+              onBack={() => {
+                setSelectedEmployee(null);
+                setActiveTab('dashboard');
+              }} 
+              user={selectedEmployee || currentUser || user}
+              onSelectEmployee={handleSelectEmployee}
+            />
+          )}
 
           {activeTab === 'leave-history' && (
             <LeaveHistoryView 
@@ -390,8 +482,8 @@ export default function App() {
         onClose={() => setIsApplyLeaveOpen(false)}
         onSubmitLeave={handleSubmitLeave}
         user={user}
+        leaveBalance={leaveBalance}
       />
     </div>
   );
-
 }
