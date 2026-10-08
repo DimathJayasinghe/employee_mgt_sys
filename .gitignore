@@ -40,3 +40,7 @@ ehthumbs.db
 # Package manager lock files / cache
 .cache/
 .eslintcache
+
+# Audit reports
+security_audit.md
+SECURITY_AUDIT_REPORT.md

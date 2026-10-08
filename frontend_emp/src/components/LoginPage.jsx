@@ -19,7 +19,6 @@ export default function LoginPage({ onLoginSuccess, initialNotice = '' }) {
   const [mode, setMode] = useState('signin');
   const [otpStep, setOtpStep] = useState(false);
   const [otpCode, setOtpCode] = useState('');
-  const [sentOtp, setSentOtp] = useState('');
 
   // Form fields
   const [email, setEmail] = useState('');
@@ -45,7 +44,6 @@ export default function LoginPage({ onLoginSuccess, initialNotice = '' }) {
     setSuccessMsg('');
     setOtpStep(false);
     setOtpCode('');
-    setSentOtp('');
   };
 
   const switchMode = (newMode) => {
@@ -98,11 +96,8 @@ export default function LoginPage({ onLoginSuccess, initialNotice = '' }) {
     try {
       const res = await API.post('/auth/send-otp', { email, type: 'register' });
       if (res.data) {
-        const generatedCode = res.data.otp || res.data.debugOtp || '';
-        setSentOtp(generatedCode);
-        setOtpCode(generatedCode);
         setOtpStep(true);
-        setSuccessMsg(res.data.message || `Verification Code: ${generatedCode}`);
+        setSuccessMsg(res.data.message || 'Verification code sent to your email.');
       }
     } catch (err) {
       console.error('Send OTP error:', err);
@@ -168,11 +163,8 @@ export default function LoginPage({ onLoginSuccess, initialNotice = '' }) {
     try {
       const res = await API.post('/auth/send-otp', { email, type: 'reset-password' });
       if (res.data) {
-        const generatedCode = res.data.otp || res.data.debugOtp || '';
-        setSentOtp(generatedCode);
-        setOtpCode(generatedCode);
         setOtpStep(true);
-        setSuccessMsg(res.data.message || `Verification Code: ${generatedCode}`);
+        setSuccessMsg(res.data.message || 'Verification code sent to your email.');
       }
     } catch (err) {
       console.error('Send reset OTP error:', err);
@@ -202,7 +194,10 @@ export default function LoginPage({ onLoginSuccess, initialNotice = '' }) {
         otp: otpCode
       });
       setSuccessMsg(res.data?.message || 'Password updated successfully! You can now sign in.');
-      setPassword(newPassword);
+      setPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setOtpCode('');
       setTimeout(() => {
         switchMode('signin');
       }, 1500);

@@ -146,7 +146,7 @@ export default function App() {
     } else if (currentView === 'employee' && currentUser?.id) {
       fetchEmployeeSummary(currentUser.id);
     }
-  }, [currentView, activeTab]);
+  }, [currentView]);
 
   const fetchAdminSummary = async () => {
     try {

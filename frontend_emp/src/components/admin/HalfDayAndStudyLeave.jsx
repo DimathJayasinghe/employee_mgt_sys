@@ -26,7 +26,7 @@ export default function HalfDayAndStudyLeave({ halfDayList = [], studyLeaveList 
             </div>
           ) : (
             <div className="space-y-4">
-              {finalHalfDay.map((emp) => {
+              {finalHalfDay.map((emp, idx) => {
                 const isMorning = (emp.half_day_session === 'Morning') || (emp.session && emp.session.includes('Morning')) || (emp.reason && emp.reason.includes('Morning'));
                 const sessionTitle = isMorning ? 'Morning Session' : 'Evening Session';
                 const leaveHours = isMorning ? '08:30 AM - 12:30 PM' : '12:30 PM - 05:30 PM';
@@ -34,7 +34,7 @@ export default function HalfDayAndStudyLeave({ halfDayList = [], studyLeaveList 
                 const isLeaveNow = emp.is_leave_now !== undefined ? emp.is_leave_now : emp.half_day_leave_now;
 
                 return (
-                  <div key={emp.id || Math.random()} className="border border-slate-200/80 bg-slate-50/50 rounded-2xl p-4 transition-all hover:bg-slate-50">
+                  <div key={emp.id || emp.user_id || idx} className="border border-slate-200/80 bg-slate-50/50 rounded-2xl p-4 transition-all hover:bg-slate-50">
                     <div className="flex items-start justify-between gap-2 mb-2">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-900 font-bold text-xs flex items-center justify-center shrink-0 border border-amber-200/60 shadow-2xs overflow-hidden">
@@ -117,8 +117,8 @@ export default function HalfDayAndStudyLeave({ halfDayList = [], studyLeaveList 
             </div>
           ) : (
             <div className="space-y-4">
-              {studyLeaveList.map((studyLeave) => (
-                <div key={studyLeave.id || Math.random()} className="bg-[#eaf4fd] border border-blue-200/70 rounded-2xl p-6 relative overflow-hidden">
+              {studyLeaveList.map((studyLeave, sIdx) => (
+                <div key={studyLeave.id || studyLeave.user_id || sIdx} className="bg-[#eaf4fd] border border-blue-200/70 rounded-2xl p-6 relative overflow-hidden">
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 rounded-full bg-blue-100 text-blue-900 font-bold text-xs flex items-center justify-center border border-blue-200 shrink-0 overflow-hidden">

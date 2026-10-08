@@ -2,8 +2,12 @@ const supabase = require('../db');
 const nodemailer = require('nodemailer');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'pwholdings_secure_jwt_secret_key_2026';
+const JWT_SECRET = process.env.JWT_SECRET || (process.env.NODE_ENV !== 'production' ? 'dev_jwt_fallback_secret_local_only' : '');
+if (!JWT_SECRET) {
+  throw new Error('FATAL: JWT_SECRET environment variable is missing.');
+}
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '8h';
 
 // Configurable Admin & Senior Admin Email Lists (environment-driven)
@@ -345,25 +349,16 @@ const authService = {
     const user = users[0];
     let isPasswordValid = false;
 
-    if (user.password) {
-      if (user.password.startsWith('$2a$') || user.password.startsWith('$2b$') || user.password.startsWith('$2y$')) {
-        try {
-          isPasswordValid = bcrypt.compareSync(password, user.password);
-        } catch (e) {
-          isPasswordValid = false;
-        }
-      } else {
-        isPasswordValid = (user.password === password);
+    if (user.password && (user.password.startsWith('$2a$') || user.password.startsWith('$2b$') || user.password.startsWith('$2y$'))) {
+      try {
+        isPasswordValid = bcrypt.compareSync(password, user.password);
+      } catch (e) {
+        isPasswordValid = false;
       }
     }
 
     if (!isPasswordValid) {
       throw new Error('Invalid email address or password');
-    }
-
-    if (ADMIN_EMAILS.includes(cleanEmail) && user.role !== 'Admin') {
-      user.role = 'Admin';
-      await supabase.from('users').update({ role: 'Admin' }).eq('id', user.id);
     }
 
     delete user.password;
@@ -409,7 +404,7 @@ const authService = {
       }
     }
 
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otp = crypto.randomInt(100000, 1000000).toString();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
     const salt = bcrypt.genSaltSync(10);
     const codeHash = bcrypt.hashSync(otp, salt);
@@ -485,7 +480,7 @@ const authService = {
       if (!dbErr && dbOtps && dbOtps.length > 0) {
         const record = dbOtps[0];
         if (new Date(record.expires_at) > new Date()) {
-          if (bcrypt.compareSync(cleanOtp, record.code_hash) || record.code_hash === cleanOtp) {
+          if (bcrypt.compareSync(cleanOtp, record.code_hash)) {
             isOtpValid = true;
             await supabase.from('auth_otps').delete().eq('id', record.id);
           }
@@ -595,7 +590,7 @@ const authService = {
       if (!dbErr && dbOtps && dbOtps.length > 0) {
         const record = dbOtps[0];
         if (new Date(record.expires_at) > new Date()) {
-          if (bcrypt.compareSync(cleanOtp, record.code_hash) || record.code_hash === cleanOtp) {
+          if (bcrypt.compareSync(cleanOtp, record.code_hash)) {
             isOtpValid = true;
             await supabase.from('auth_otps').delete().eq('id', record.id);
           }
@@ -1196,7 +1191,7 @@ const adminService = {
 
     const { data: allUsers, error: uErr } = await supabase
       .from('users')
-      .select('*');
+      .select('id, name, initials, department, status, role, emp_code, designation, card_designation, employment_type, dob, gender, nic, address, phone, personal_email, date_joined, photo_url, skills, email');
 
     if (uErr) {
       console.warn('Supabase allUsers fetch error in getAdminSummary:', uErr.message);
@@ -1627,7 +1622,7 @@ const adminService = {
 
     const { data: allUsers, error: uErr } = await supabase
       .from('users')
-      .select('*');
+      .select('id, name, initials, department, status, role, emp_code, designation, card_designation, employment_type, dob, gender, nic, address, phone, personal_email, date_joined, photo_url, skills, email');
 
     if (uErr) {
       console.warn('Supabase allUsers fetch error in getAdminEmployees:', uErr.message);
@@ -2106,7 +2101,7 @@ const profileService = {
 
     if (error || !users || users.length === 0) {
       // Fallback 1: ilike email or exact numeric match
-      let fbQuery = supabase.from('users').select('*');
+      let fbQuery = supabase.from('users').select(PROFILE_COLUMNS);
       if (isNum) {
         fbQuery = fbQuery.eq('id', numId);
       } else {
@@ -2115,15 +2110,9 @@ const profileService = {
       const { data: fallbackUsers } = await fbQuery;
 
       if (!fallbackUsers || fallbackUsers.length === 0) {
-        // Fallback 2: fetch default user record
-        const { data: defaultUsers } = await supabase.from('users').select('*').order('id', { ascending: true }).limit(1);
-        if (!defaultUsers || defaultUsers.length === 0) {
-          const err = new Error('Profile not found');
-          err.status = 404;
-          throw err;
-        }
-        delete defaultUsers[0].password;
-        return defaultUsers[0];
+        const err = new Error('Profile not found');
+        err.status = 404;
+        throw err;
       }
       delete fallbackUsers[0].password;
       return fallbackUsers[0];
@@ -2225,7 +2214,7 @@ const profileService = {
     }
 
     // Name, Emp Code, Department, Designation, Gender, Joined Date (Admin or full access)
-    const isAdmin = !requestingUser || requestingUser.role === 'Admin';
+    const isAdmin = Boolean(requestingUser && requestingUser.role === 'Admin');
     if (isAdmin) {
       if (updates.name !== undefined && updates.name.trim() !== '') {
         payload.name = updates.name.trim();

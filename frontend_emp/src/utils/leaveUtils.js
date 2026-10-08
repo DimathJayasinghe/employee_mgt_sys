@@ -65,10 +65,8 @@ export function getLeaveCancellationStatus(leave) {
     }
   }
 
-  const [year, month, day] = startDateStr.split('-').map(Number);
-  const [hour, minute, second] = cutoffTimeStr.split(':').map(Number);
-  // Asia/Colombo is UTC+05:30 -> subtract 5h 30m to get UTC timestamp
-  const cutoffUtcMs = Date.UTC(year, month - 1, day, hour - 5, (minute || 0) - 30, second || 0);
+  const fullCutoffTime = cutoffTimeStr.length === 5 ? `${cutoffTimeStr}:00` : cutoffTimeStr;
+  const cutoffUtcMs = new Date(`${startDateStr}T${fullCutoffTime}+05:30`).getTime();
 
   const nowMs = Date.now();
   if (nowMs > cutoffUtcMs) {

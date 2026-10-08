@@ -50,8 +50,8 @@ class SessionManager {
     if (!token) return true;
     const payload = this.decodeJwtPayload(token);
     if (!payload || !payload.exp) {
-      // If token does not contain exp, fallback to valid or verify with backend
-      return false;
+      // Require explicit exp claim for security
+      return true;
     }
     // exp is in seconds, convert to milliseconds with 10s clock skew buffer
     const expirationTimeMs = payload.exp * 1000;
@@ -212,21 +212,27 @@ class SessionManager {
 
     if (!this.inactivityListenersRegistered && typeof window !== 'undefined') {
       const events = ['mousedown', 'keydown', 'touchstart', 'scroll'];
-      const activityHandler = () => {
+      this.activityHandler = () => {
         this.recordActivity();
       };
-      events.forEach((ev) => window.addEventListener(ev, activityHandler, { passive: true }));
+      events.forEach((ev) => window.addEventListener(ev, this.activityHandler, { passive: true }));
       this.inactivityListenersRegistered = true;
     }
   }
 
   /**
-   * Stops inactivity timer
+   * Stops inactivity timer and removes event listeners
    */
   stopInactivityWatcher() {
     if (this.inactivityTimer) {
       clearTimeout(this.inactivityTimer);
       this.inactivityTimer = null;
+    }
+    if (this.inactivityListenersRegistered && typeof window !== 'undefined' && this.activityHandler) {
+      const events = ['mousedown', 'keydown', 'touchstart', 'scroll'];
+      events.forEach((ev) => window.removeEventListener(ev, this.activityHandler));
+      this.inactivityListenersRegistered = false;
+      this.activityHandler = null;
     }
   }
 }

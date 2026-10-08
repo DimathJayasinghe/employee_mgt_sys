@@ -73,14 +73,23 @@ async function runBackup() {
       const count = data ? data.length : 0;
       summary.tables[table] = { status: 'success', count: count };
 
+      let exportData = data;
+      if (table === 'users' && Array.isArray(data)) {
+        exportData = data.map(u => {
+          const copy = { ...u };
+          delete copy.password;
+          return copy;
+        });
+      }
+
       // 1. Save JSON
-      fs.writeFileSync(path.join(backupFolder, `${table}.json`), JSON.stringify(data, null, 2));
+      fs.writeFileSync(path.join(backupFolder, `${table}.json`), JSON.stringify(exportData, null, 2));
 
       // 2. Save CSV (Excel friendly)
-      fs.writeFileSync(path.join(backupFolder, `${table}.csv`), convertToCsv(data));
+      fs.writeFileSync(path.join(backupFolder, `${table}.csv`), convertToCsv(exportData));
 
       // 3. Append to SQL dump
-      fullSqlDump += convertToSqlInserts(table, data);
+      fullSqlDump += convertToSqlInserts(table, exportData);
 
       console.log(`✅ Table "${table}": ${count} records exported (JSON + CSV)`);
     } catch (err) {

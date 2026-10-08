@@ -27,6 +27,17 @@ function errorHandler(err, req, res, next) {
   const statusCode = err.status || err.statusCode || 500;
   const requestId = req.id || req.headers?.['x-request-id'] || 'unknown';
 
+  // Sanitize sensitive request body fields before logging
+  const sanitizedBody = req.body && typeof req.body === 'object' ? { ...req.body } : req.body;
+  if (sanitizedBody && typeof sanitizedBody === 'object') {
+    if (sanitizedBody.password) sanitizedBody.password = '[REDACTED]';
+    if (sanitizedBody.newPassword) sanitizedBody.newPassword = '[REDACTED]';
+    if (sanitizedBody.otp) sanitizedBody.otp = '[REDACTED]';
+    if (sanitizedBody.token) sanitizedBody.token = '[REDACTED]';
+    if (sanitizedBody.document_data) sanitizedBody.document_data = '[BASE64_TRUNCATED]';
+    if (sanitizedBody.photo_data) sanitizedBody.photo_data = '[BASE64_TRUNCATED]';
+  }
+
   // Log full error stack and request context to Vercel / server console
   Logger.error(`Unhandled Exception on ${req.method} ${req.originalUrl || req.url}`, err, {
     requestId,
@@ -34,7 +45,7 @@ function errorHandler(err, req, res, next) {
     method: req.method,
     url: req.originalUrl || req.url,
     query: req.query,
-    body: req.body
+    body: sanitizedBody
   });
 
   // Client-safe error message

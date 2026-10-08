@@ -4,6 +4,23 @@ import { ArrowUpRight, Eye, CheckCircle2, XCircle } from 'lucide-react';
 export default function PendingLeaveRequestsTable({ requests = [], currentUser, onApprove, onReject, onViewAll }) {
   const [actionSuccess, setActionSuccess] = useState(null);
 
+  const seniorAdminEmails = [
+    'channa@pwholdings.lk',
+    'nishani@pwholdings.lk',
+    'hashan@pwholdings.lk',
+    'pasindu.buddhima@pwholdings.lk'
+  ];
+  const userEmail = (currentUser?.email || '').trim().toLowerCase();
+  const isAuthorizedSeniorAdmin = currentUser?.role === 'Admin' && (
+    Boolean(currentUser?.is_senior_admin) ||
+    seniorAdminEmails.includes(userEmail) ||
+    (currentUser?.designation && (
+      currentUser.designation.toLowerCase().includes('director') ||
+      currentUser.designation.toLowerCase().includes('lead') ||
+      currentUser.designation.toLowerCase().includes('manager')
+    ))
+  );
+
   const handleApproveClick = async (req) => {
     try {
       await onApprove(req.id);

@@ -1,4 +1,5 @@
 const supabase = require('./db');
+const bcrypt = require('bcryptjs');
 
 const initialUsers = [
   {
@@ -88,7 +89,7 @@ async function syncDatabase() {
           name: u.name,
           email: u.email,
           department: u.department,
-          password: u.password,
+          password: bcrypt.hashSync(u.password, 10),
           initials: u.initials,
           status: u.status,
           role: u.role

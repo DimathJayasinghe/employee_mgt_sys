@@ -14,8 +14,8 @@ export default function TodaysLeaveCards({ leaves = [] }) {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          {leaves.map((item) => (
-            <div key={item.id || Math.random()} className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-2xs">
+          {leaves.map((item, idx) => (
+            <div key={item.id || item.user_id || idx} className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-2xs">
               {/* Header info */}
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-3">

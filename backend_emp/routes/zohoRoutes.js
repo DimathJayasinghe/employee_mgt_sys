@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const zohoService = require('../services/zohoService');
-const { authenticateToken } = require('../middleware/authMiddleware');
+const { authenticateToken, requireAdmin } = require('../middleware/authMiddleware');
 
 router.use(authenticateToken);
 
@@ -17,7 +17,7 @@ router.get('/zoho/clients', async (req, res) => {
 });
 
 // GET /api/admin/client-analytics - Fetch client analytics report for admin
-router.get('/admin/client-analytics', async (req, res) => {
+router.get('/admin/client-analytics', requireAdmin, async (req, res) => {
   try {
     const result = await zohoService.getClientAnalytics();
     res.json(result);
@@ -28,7 +28,7 @@ router.get('/admin/client-analytics', async (req, res) => {
 });
 
 // POST /api/zoho/employee - Create employee record directly in Zoho Books Custom Module cm_employee
-router.post('/zoho/employee', async (req, res) => {
+router.post('/zoho/employee', requireAdmin, async (req, res) => {
   try {
     const { emp_code, name, dob, date_joined, designation, card_designation, email } = req.body;
     if (!name || !email) {

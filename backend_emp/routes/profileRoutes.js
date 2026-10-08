@@ -64,6 +64,26 @@ router.patch(['/profile/me', '/profile', '/me'], async (req, res) => {
   }
 });
 
+// GET /profile/search?q=query
+router.get('/profile/search', async (req, res) => {
+  try {
+    const q = req.query.q ? String(req.query.q).trim() : '';
+    if (!q) return res.json([]);
+    const { data: users, error } = await supabase
+      .from('users')
+      .select('id, name, initials, department, designation, card_designation, emp_code, photo_url')
+      .or(`name.ilike.%${q}%,department.ilike.%${q}%,designation.ilike.%${q}%,emp_code.ilike.%${q}%`)
+      .limit(20);
+    if (error) {
+      console.warn('Search query error:', error.message);
+      return res.json([]);
+    }
+    return res.json(users || []);
+  } catch (err) {
+    return res.status(500).json({ error: err.message || 'Failed to search employees' });
+  }
+});
+
 // GET /profile/upcoming-birthdays
 router.get('/profile/upcoming-birthdays', async (req, res) => {
   try {

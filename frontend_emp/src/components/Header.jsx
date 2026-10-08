@@ -46,23 +46,22 @@ export default function Header({
     const timer = setTimeout(async () => {
       setIsSearching(true);
       try {
-        const res = await API.get('/profile/upcoming-birthdays'); // Returns users list
         const query = searchQuery.toLowerCase().trim();
+        const res = await API.get(`/profile/search?q=${encodeURIComponent(query)}`);
         const list = Array.isArray(res.data) ? res.data : [];
         
-        // Also include current user in search candidates
+        // Also include current user in search candidates if matched
         if (user && !list.some(u => u.id === user.id)) {
-          list.unshift(user);
+          const matchUser = (
+            (user.name && user.name.toLowerCase().includes(query)) ||
+            (user.department && user.department.toLowerCase().includes(query)) ||
+            (user.emp_code && user.emp_code.toLowerCase().includes(query)) ||
+            (user.designation && user.designation.toLowerCase().includes(query))
+          );
+          if (matchUser) list.unshift(user);
         }
 
-        const filtered = list.filter(u => 
-          (u.name && u.name.toLowerCase().includes(query)) ||
-          (u.department && u.department.toLowerCase().includes(query)) ||
-          (u.emp_code && u.emp_code.toLowerCase().includes(query)) ||
-          (u.designation && u.designation.toLowerCase().includes(query))
-        );
-
-        setSearchResults(filtered);
+        setSearchResults(list);
         setIsSearchOpen(true);
       } catch (err) {
         console.warn('Search query warning:', err.message);

@@ -6,17 +6,16 @@ function authenticateToken(req, res, next) {
   const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : authHeader;
 
   if (!token || token === 'null' || token === 'undefined' || token === '') {
-    req.user = null;
-    return next();
+    return res.status(401).json({ error: 'Authentication required' });
   }
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
     req.user = decoded;
+    next();
   } catch (err) {
-    req.user = null;
+    return res.status(401).json({ error: 'Invalid or expired session token' });
   }
-  next();
 }
 
 function requireAdmin(req, res, next) {

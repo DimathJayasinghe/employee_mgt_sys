@@ -23,16 +23,44 @@ export default function ReportModal({ isOpen, onClose, profile }) {
       return;
     }
 
-    const logoSrc = logoImg || '/logo.png';
-    const avatarSrc = profile.photo_url || '';
-    const initials = profile.initials || (profile.name ? profile.name.slice(0, 2).toUpperCase() : 'EP');
+    const esc = (s) => {
+      if (s === null || s === undefined) return '';
+      return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    };
+
+    const logoSrc = esc(logoImg || '/logo.png');
+    const avatarSrc = esc(profile.photo_url || '');
+    const initials = esc(profile.initials || (profile.name ? profile.name.slice(0, 2).toUpperCase() : 'EP'));
+    const safeName = esc(profile.name || 'Employee');
+    const safeEmpCode = esc(profile.emp_code || profile.id || '001');
+    const safeStatus = esc(profile.status || 'Active');
+    const safeDesignation = esc(profile.designation || 'Employee');
+    const safeDepartment = esc(profile.department || 'General');
+    const safeRole = esc(profile.role || 'Employee');
+    const safeNic = esc(profile.nic || '-');
+    const safeGender = esc(profile.gender || '-');
+    const safeEmpType = esc(profile.employment_type || 'Full Time');
+    const safePhone = esc(profile.phone || '-');
+    const safeEmail = esc(profile.email || '-');
+    const safePersonalEmail = esc(profile.personal_email || '-');
+    const safeAddress = esc(profile.address || '-');
+    const safeDob = esc(formattedDob);
+    const safeJoined = esc(formattedJoined);
+    const safeTenure = esc(tenureText !== '-' ? tenureText : 'New Staff');
+    const safeAge = esc(ageText !== '-' ? `${ageText} yrs` : '-');
+    const safeGenDate = esc(generatedDate);
 
     const htmlContent = `
       <!DOCTYPE html>
       <html>
         <head>
           <meta charset="utf-8">
-          <title>Executive Personnel Dossier - ${profile.name || 'Employee'}</title>
+          <title>Executive Personnel Dossier - ${safeName}</title>
           <style>
             @page {
               size: A4 portrait;
@@ -314,48 +342,48 @@ export default function ReportModal({ isOpen, onClose, profile }) {
             </div>
             <div class="doc-info">
               <span class="badge-confidential">CONFIDENTIAL</span>
-              <p class="ref-no">REF: PWH/EMP/${new Date().getFullYear()}/${profile.emp_code || profile.id || '001'}</p>
-              <p class="gen-date">Date: ${generatedDate}</p>
+              <p class="ref-no">REF: PWH/EMP/${new Date().getFullYear()}/${safeEmpCode}</p>
+              <p class="gen-date">Date: ${safeGenDate}</p>
             </div>
           </div>
 
           <div class="hero-card">
             <div class="hero-left">
               <div class="avatar-box">
-                ${avatarSrc ? `<img src="${avatarSrc}" alt="${profile.name}" />` : initials}
+                ${avatarSrc ? `<img src="${avatarSrc}" alt="${safeName}" />` : initials}
               </div>
               <div>
-                <h2 class="hero-title">${profile.name || 'Employee Profile'} <span class="status-pill">● ${profile.status || 'Active'}</span></h2>
-                <p class="hero-sub">${profile.designation || 'Employee'} • ${profile.department || 'General'}</p>
+                <h2 class="hero-title">${safeName} <span class="status-pill">● ${safeStatus}</span></h2>
+                <p class="hero-sub">${safeDesignation} • ${safeDepartment}</p>
                 <div class="hero-meta">
-                  <span>Emp Code: <strong>${profile.emp_code || '-'}</strong></span>
-                  <span>Joined: <strong>${formattedJoined}</strong></span>
-                  <span>Role: <strong>${profile.role || 'Employee'}</strong></span>
+                  <span>Emp Code: <strong>${safeEmpCode}</strong></span>
+                  <span>Joined: <strong>${safeJoined}</strong></span>
+                  <span>Role: <strong>${safeRole}</strong></span>
                 </div>
               </div>
             </div>
             <div class="tenure-box">
               <span style="font-size:9px; color:#94a3b8; text-transform:uppercase; font-weight:700;">Tenure</span>
-              <span class="tenure-val">${tenureText !== '-' ? tenureText : 'New Staff'}</span>
+              <span class="tenure-val">${safeTenure}</span>
             </div>
           </div>
 
           <div class="grid-4">
             <div class="stat-card">
               <span class="stat-label">Designation</span>
-              <span class="stat-val">${profile.designation || '-'}</span>
+              <span class="stat-val">${safeDesignation}</span>
             </div>
             <div class="stat-card">
               <span class="stat-label">Joined Date</span>
-              <span class="stat-val">${formattedJoined}</span>
+              <span class="stat-val">${safeJoined}</span>
             </div>
             <div class="stat-card">
               <span class="stat-label">Date of Birth</span>
-              <span class="stat-val">${formattedDob}</span>
+              <span class="stat-val">${safeDob}</span>
             </div>
             <div class="stat-card">
               <span class="stat-label">Years of Service</span>
-              <span class="stat-val">${tenureText}</span>
+              <span class="stat-val">${safeTenure}</span>
             </div>
           </div>
 
@@ -363,20 +391,20 @@ export default function ReportModal({ isOpen, onClose, profile }) {
             <div class="section-card">
               <div class="section-header">Personal Information</div>
               <table>
-                <tr><td class="lbl">Full Name</td><td class="val">${profile.name || '-'}</td></tr>
-                <tr><td class="lbl">NIC / National ID</td><td class="val" style="font-family:monospace">${profile.nic || '-'}</td></tr>
-                <tr><td class="lbl">Date of Birth</td><td class="val">${formattedDob} (${ageText !== '-' ? `${ageText} yrs` : '-'})</td></tr>
-                <tr><td class="lbl">Gender</td><td class="val">${profile.gender || '-'}</td></tr>
+                <tr><td class="lbl">Full Name</td><td class="val">${safeName}</td></tr>
+                <tr><td class="lbl">NIC / National ID</td><td class="val" style="font-family:monospace">${safeNic}</td></tr>
+                <tr><td class="lbl">Date of Birth</td><td class="val">${safeDob} (${safeAge})</td></tr>
+                <tr><td class="lbl">Gender</td><td class="val">${safeGender}</td></tr>
               </table>
             </div>
 
             <div class="section-card">
               <div class="section-header">Employment Details</div>
               <table>
-                <tr><td class="lbl">Employee Code</td><td class="val" style="font-family:monospace">${profile.emp_code || '-'}</td></tr>
-                <tr><td class="lbl">Department</td><td class="val">${profile.department || '-'}</td></tr>
-                <tr><td class="lbl">Designation</td><td class="val">${profile.designation || '-'}</td></tr>
-                <tr><td class="lbl">Employment Type</td><td class="val">${profile.employment_type || 'Full Time'}</td></tr>
+                <tr><td class="lbl">Employee Code</td><td class="val" style="font-family:monospace">${safeEmpCode}</td></tr>
+                <tr><td class="lbl">Department</td><td class="val">${safeDepartment}</td></tr>
+                <tr><td class="lbl">Designation</td><td class="val">${safeDesignation}</td></tr>
+                <tr><td class="lbl">Employment Type</td><td class="val">${safeEmpType}</td></tr>
               </table>
             </div>
           </div>
@@ -386,19 +414,19 @@ export default function ReportModal({ isOpen, onClose, profile }) {
             <div class="contact-grid">
               <div>
                 <span class="stat-label">Phone Number</span>
-                <span class="stat-val" style="font-family:monospace">${profile.phone || '-'}</span>
+                <span class="stat-val" style="font-family:monospace">${safePhone}</span>
               </div>
               <div>
                 <span class="stat-label">Official Email</span>
-                <span class="stat-val">${profile.email || '-'}</span>
+                <span class="stat-val">${safeEmail}</span>
               </div>
               <div>
                 <span class="stat-label">Personal Email</span>
-                <span class="stat-val">${profile.personal_email || '-'}</span>
+                <span class="stat-val">${safePersonalEmail}</span>
               </div>
               <div style="grid-column: span 3;">
                 <span class="stat-label">Residential Address</span>
-                <span class="stat-val">${profile.address || '-'}</span>
+                <span class="stat-val">${safeAddress}</span>
               </div>
             </div>
           </div>

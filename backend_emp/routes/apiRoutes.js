@@ -116,14 +116,14 @@ router.post('/auth/login', async (req, res, next) => {
     if (isLoginBlocked(attemptKey)) return res.status(429).json({ error: 'Too many failed login attempts. Please try again later.' });
     const { data: user, error } = await db.from('users').select('*').ilike('email', email).maybeSingle();
     if (error) throw error;
-    if (!user || !(await bcrypt.compare(password, user.password)).valueOf()) {
-      if (!user || user.password !== password) {
-        recordLoginFailure(attemptKey);
-        return res.status(401).json({ error: 'Invalid email address or password' });
-      }
-      const hashed = await bcrypt.hash(password, 12);
-      await db.from('users').update({ password: hashed }).eq('id', user.id);
-      user.password = hashed;
+    if (!user || !user.password) {
+      recordLoginFailure(attemptKey);
+      return res.status(401).json({ error: 'Invalid email address or password' });
+    }
+    const isValid = await bcrypt.compare(password, user.password);
+    if (!isValid) {
+      recordLoginFailure(attemptKey);
+      return res.status(401).json({ error: 'Invalid email address or password' });
     }
     loginFailures.delete(attemptKey);
     res.json({ message: 'Login successful', token: signUser(user), user: publicUser(user) });

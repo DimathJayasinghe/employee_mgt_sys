@@ -118,8 +118,8 @@ export default function TodaysWorkforceTable({ workforce = [] }) {
                 </td>
               </tr>
             ) : (
-              filtered.map((emp) => (
-                <tr key={emp.id || Math.random()} className="hover:bg-slate-50/70 transition-colors">
+              filtered.map((emp, idx) => (
+                <tr key={emp.id || emp.emp_code || idx} className="hover:bg-slate-50/70 transition-colors">
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-900 font-bold text-xs flex items-center justify-center shrink-0 border border-blue-200/60 shadow-2xs overflow-hidden">
