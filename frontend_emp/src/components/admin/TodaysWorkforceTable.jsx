@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, ChevronDown, ArrowUpRight } from 'lucide-react';
+import { Search, ChevronDown, ArrowUpRight, Building2 } from 'lucide-react';
 
 export default function TodaysWorkforceTable({ workforce = [] }) {
   const [searchTerm, setSearchTerm] = useState('');
@@ -8,6 +8,17 @@ export default function TodaysWorkforceTable({ workforce = [] }) {
 
   const departments = ['All departments', 'IT', 'Finance'];
   const workFilterOptions = ['All Work Status', 'Work Submitted', 'Pending Description'];
+
+  const parseWorkDesc = (rawDesc) => {
+    if (!rawDesc) return { cleanText: '', clientTags: [] };
+    const tagMatch = rawDesc.match(/\[Clients:\s*([^\]]+)\]/i);
+    let clientTags = [];
+    if (tagMatch && tagMatch[1]) {
+      clientTags = tagMatch[1].split(',').map(s => s.trim()).filter(Boolean);
+    }
+    const cleanText = rawDesc.replace(/\n?\[Clients:[^\]]+\]/gi, '').trim();
+    return { cleanText, clientTags };
+  };
 
   const filtered = workforce.filter(emp => {
     const matchesSearch = emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -163,11 +174,25 @@ export default function TodaysWorkforceTable({ workforce = [] }) {
                   </td>
                   <td className="px-6 py-4 text-slate-400 text-[11px] font-medium whitespace-nowrap">{emp.updated_ago}</td>
                   <td className="px-6 py-4 text-slate-800 font-normal min-w-[240px] max-w-md">
-                    {emp.today_work ? (
-                      <div className="max-h-[250px] overflow-y-auto pr-1.5 whitespace-pre-wrap leading-relaxed text-xs text-slate-700 bg-slate-50/60 p-2.5 rounded-xl border border-slate-100">
-                        {emp.today_work}
-                      </div>
-                    ) : (
+                    {emp.today_work ? (() => {
+                      const { cleanText, clientTags } = parseWorkDesc(emp.today_work);
+                      return (
+                        <div className="max-h-[250px] overflow-y-auto pr-1.5 whitespace-pre-wrap leading-relaxed text-xs text-slate-700 bg-slate-50/60 p-2.5 rounded-xl border border-slate-100 space-y-2">
+                          <div>{cleanText || 'Work submitted'}</div>
+                          {clientTags.length > 0 && (
+                            <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-slate-200/60">
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Clients:</span>
+                              {clientTags.map(cName => (
+                                <span key={cName} className="bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 shadow-2xs">
+                                  <Building2 className="w-3 h-3 text-blue-200" />
+                                  <span>{cName}</span>
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })() : (
                       <span className="text-slate-400 italic text-xs">No description yet</span>
                     )}
                   </td>

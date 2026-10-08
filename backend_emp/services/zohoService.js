@@ -310,6 +310,129 @@ const zohoService = {
       active_clients_worked: clientAnalyticsList.filter(c => c.total_work_entries > 0).length,
       analytics: clientAnalyticsList
     };
+  },
+
+  /**
+   * Create a new employee entry directly in Zoho Books Custom Module 'cm_employee'
+   */
+  async createZohoEmployeeRecord(empData = {}) {
+    const clientId = process.env.ZOHO_CLIENT_ID;
+    const clientSecret = process.env.ZOHO_CLIENT_SECRET;
+    const refreshToken = process.env.ZOHO_REFRESH_TOKEN;
+    const orgId = process.env.ZOHO_ORGANIZATION_ID;
+
+    if (!clientId || !clientSecret || !refreshToken || !orgId) {
+      return {
+        success: false,
+        message: 'Zoho Books API credentials not configured in backend environment.'
+      };
+    }
+
+    try {
+      const now = Date.now();
+      // Ensure token is fresh
+      if (!cachedToken || now >= tokenExpiresAt) {
+        const candidateAccounts = workingAccountsUrl 
+          ? [workingAccountsUrl] 
+          : [
+              process.env.ZOHO_ACCOUNTS_URL || 'https://accounts.zoho.com',
+              'https://accounts.zoho.in',
+              'https://accounts.zoho.eu'
+            ];
+
+        let tokenData = null;
+        let successfulAccountsUrl = null;
+
+        for (const accountsUrl of candidateAccounts) {
+          try {
+            const params = new URLSearchParams();
+            params.append('refresh_token', refreshToken ? refreshToken.trim() : '');
+            params.append('client_id', clientId ? clientId.trim() : '');
+            params.append('client_secret', clientSecret ? clientSecret.trim() : '');
+            params.append('grant_type', 'refresh_token');
+
+            const tokenRes = await fetch(`${accountsUrl}/oauth/v2/token`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+              body: params
+            });
+
+            const resJson = await tokenRes.json();
+            if (resJson.access_token) {
+              tokenData = resJson;
+              successfulAccountsUrl = accountsUrl;
+              break;
+            }
+          } catch (err) {
+            console.warn(`Token request failed at ${accountsUrl}:`, err.message);
+          }
+        }
+
+        if (!tokenData || !tokenData.access_token) {
+          return { success: false, message: 'Could not obtain Zoho Books access token.' };
+        }
+
+        workingAccountsUrl = successfulAccountsUrl;
+        cachedToken = tokenData.access_token;
+        tokenExpiresAt = now + ((tokenData.expires_in || 3600) - 300) * 1000;
+        workingApiDomain = tokenData.api_domain || process.env.ZOHO_API_DOMAIN || 'https://www.zohoapis.com';
+      }
+
+      const apiDomain = workingApiDomain || 'https://www.zohoapis.com';
+
+      // Zoho Books Custom Module 'cm_employee' requires top-level cf_* properties
+      const payload = {
+        cf_name: empData.name || '',
+        cf_email: empData.email || ''
+      };
+
+      if (empData.emp_code) {
+        payload.cf_emp_code = empData.emp_code;
+      }
+      if (empData.dob) {
+        payload.cf_dob = empData.dob;
+      }
+      if (empData.date_joined || empData.date_of_joined) {
+        payload.cf_date_of_joined = empData.date_joined || empData.date_of_joined;
+      }
+      if (empData.designation) {
+        payload.cf_designation = empData.designation;
+      }
+      if (empData.card_designation) {
+        payload.cf_card_designation = empData.card_designation;
+      }
+
+      const endpoint = `${apiDomain}/books/v3/cm_employee?organization_id=${orgId}`;
+
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Zoho-oauthtoken ${cachedToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const resData = await res.json();
+
+      if (resData.code === 0 || resData.module_record) {
+        const empCode = resData.module_record?.cf_emp_code || resData.module_record?.record_name || '';
+        return {
+          success: true,
+          message: `Employee entry created successfully in Zoho Books! (Assigned EMP CODE: ${empCode || 'Auto-assigned'})`,
+          data: resData.module_record
+        };
+      } else {
+        console.warn('Zoho Custom Module creation error:', JSON.stringify(resData));
+        return {
+          success: false,
+          message: resData.message || 'Failed to create employee record in Zoho Books.'
+        };
+      }
+    } catch (err) {
+      console.error('Create Zoho employee error:', err.message);
+      return { success: false, message: err.message };
+    }
   }
 };
 

@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { adminService } = require('../services/backendService');
+const { sendDailyBackupEmail, sendMonthlyBackupEmail } = require('../services/backupScheduler');
 const { authenticateToken, requireAdmin } = require('../middleware/authMiddleware');
 
 router.use(authenticateToken);
@@ -73,6 +74,38 @@ router.post('/leave/reject', async (req, res) => {
   } catch (err) {
     console.error('Reject leave error:', err.message);
     res.status(400).json({ error: err.message || 'Failed to reject leave' });
+  }
+});
+
+// GET /api/admin/backup - Downloads complete Supabase database backup JSON
+router.get('/backup', async (req, res) => {
+  try {
+    const backupData = await adminService.generateFullBackup();
+    const dateStr = new Date().toISOString().split('T')[0];
+    const filename = `supabase_database_backup_${dateStr}.json`;
+
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    return res.json(backupData);
+  } catch (err) {
+    console.error('Admin database backup error:', err.message);
+    return res.status(500).json({ error: err.message || 'Failed to generate database backup' });
+  }
+});
+
+// POST /api/admin/send-backup-email - Manually trigger database backup email dispatch
+router.post('/send-backup-email', async (req, res) => {
+  try {
+    const { to, cc } = req.body || {};
+    const result = await sendDailyBackupEmail({ to, cc, isManual: true });
+    if (result.success) {
+      return res.json({ message: 'Backup email sent successfully', details: result });
+    } else {
+      return res.status(500).json({ error: result.reason || result.error || 'Failed to send backup email' });
+    }
+  } catch (err) {
+    console.error('Admin send backup email error:', err.message);
+    return res.status(500).json({ error: err.message || 'Failed to send backup email' });
   }
 });
 

@@ -27,4 +27,27 @@ router.get('/admin/client-analytics', async (req, res) => {
   }
 });
 
+// POST /api/zoho/employee - Create employee record directly in Zoho Books Custom Module cm_employee
+router.post('/zoho/employee', async (req, res) => {
+  try {
+    const { emp_code, name, dob, date_joined, designation, card_designation, email } = req.body;
+    if (!name || !email) {
+      return res.status(400).json({ error: 'Name and Email are required fields.' });
+    }
+    const result = await zohoService.createZohoEmployeeRecord({
+      emp_code,
+      name,
+      dob,
+      date_joined,
+      designation,
+      card_designation,
+      email
+    });
+    res.json(result);
+  } catch (err) {
+    console.error('Create Zoho employee route error:', err.message);
+    res.status(500).json({ error: err.message || 'Failed to submit employee entry to Zoho Books' });
+  }
+});
+
 module.exports = router;

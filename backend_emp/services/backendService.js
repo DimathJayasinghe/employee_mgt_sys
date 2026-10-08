@@ -226,7 +226,7 @@ function getLeaveCancellationStatus(leave) {
 }
 
 // Unified Email Dispatcher supporting Resend API & SMTP
-async function sendSystemEmail({ to, cc, subject, html }) {
+async function sendSystemEmail({ to, cc, subject, html, attachments }) {
   const resendApiKey = process.env.RESEND_API_KEY || (process.env.EMAIL_PASS?.startsWith('re_') ? process.env.EMAIL_PASS : null);
   const fromEmail = process.env.EMAIL_FROM || 'P W Holdings System <hr@mail.pwholdings.lk>';
 
@@ -241,6 +241,14 @@ async function sendSystemEmail({ to, cc, subject, html }) {
       };
       if (cc && (Array.isArray(cc) ? cc.length > 0 : Boolean(cc))) {
         payload.cc = Array.isArray(cc) ? cc : [cc];
+      }
+      if (attachments && Array.isArray(attachments) && attachments.length > 0) {
+        payload.attachments = attachments.map(att => ({
+          filename: att.filename,
+          content: Buffer.isBuffer(att.content)
+            ? att.content.toString('base64')
+            : Buffer.from(typeof att.content === 'string' ? att.content : JSON.stringify(att.content)).toString('base64')
+        }));
       }
 
       const res = await fetch('https://api.resend.com/emails', {
@@ -283,7 +291,8 @@ async function sendSystemEmail({ to, cc, subject, html }) {
         to,
         cc,
         subject,
-        html
+        html,
+        attachments
       });
       console.log(`✅ [SMTP] Email sent to ${to}. MessageID: ${info.messageId}`);
       return { success: true, id: info.messageId };
@@ -632,7 +641,7 @@ const dashboardService = {
     // 6. Fetch Team Workforce Status Today (Working & On Leave)
     const { data: allUsers } = await supabase
       .from('users')
-      .select('id, name, initials, department, status, role')
+      .select('id, name, initials, department, status, role, photo_url')
       .order('name', { ascending: true });
 
     const { data: todayWorks } = await supabase
@@ -689,6 +698,7 @@ const dashboardService = {
         id: u.id,
         name: u.name,
         initials: u.initials || getInitials(u.name),
+        photo_url: u.photo_url || null,
         department: u.department || 'General',
         status: displayStatus,
         today_work: todayWorkDesc,
@@ -861,7 +871,7 @@ const dashboardService = {
         day_of_week: day_of_week || null,
         start_time: start_time || null,
         end_time: end_time || null,
-        special_session: isSpecial ? (special_session || 'Morning') : special_session || null,
+        special_session: isSpecial ? (special_session || 'Morning') : (special_session ? String(special_session).slice(0, 20) : null),
         is_recurring: finalRecurring,
         status: 'Pending',
         reason: reason || ''
@@ -1059,6 +1069,17 @@ const adminService = {
       .eq('status', 'Approved')
       .gt('start_date', todayStr)
       .order('start_date', { ascending: true });
+    const { data: allLeavesRaw } = await supabase
+      .from('leave_requests')
+      .select(`
+        id, user_id, leave_type, start_date, end_date, days_count, 
+        day_of_week, start_time, end_time, special_session, is_recurring, 
+        status, reason, created_at,
+        users (id, name, email, department, initials, photo_url)
+      `)
+      .in('status', ['Approved', 'Rejected', 'Cancelled'])
+      .order('created_at', { ascending: false })
+      .limit(300);
 
     let workingCount = 0;
     let onLeaveCount = 0;
@@ -1124,6 +1145,7 @@ const adminService = {
         id: u.id,
         name: u.name,
         initials: u.initials || getInitials(u.name),
+        photo_url: u.photo_url || null,
         department: u.department || 'IT',
         status: displayStatus,
         today_work: todayWork,
@@ -1326,6 +1348,37 @@ const adminService = {
                 : `${r.days_count} days (${r.start_date ? r.start_date.split('T')[0] : ''} to ${r.end_date ? r.end_date.split('T')[0] : ''})`)
     }));
 
+    const allLeavesFormatted = (allLeavesRaw || []).map(r => ({
+      id: r.id,
+      user_id: r.user_id,
+      employee_name: r.users?.name || 'Employee',
+      initials: r.users?.initials || (r.users?.name ? getInitials(r.users.name) : 'EP'),
+      photo_url: r.users?.photo_url || null,
+      department: r.users?.department || 'IT',
+      email: r.users?.email || '',
+      leave_type: r.leave_type,
+      from_date: r.start_date ? r.start_date.split('T')[0] : '',
+      to_date: r.end_date ? r.end_date.split('T')[0] : '',
+      days_count: r.days_count,
+      day_of_week: r.day_of_week,
+      start_time: r.start_time,
+      end_time: r.end_time,
+      special_session: r.special_session,
+      is_recurring: r.is_recurring,
+      reason: r.reason,
+      status: r.status,
+      applied_date: r.created_at ? r.created_at.split('T')[0] : '',
+      duration: r.leave_type === 'Special Leave' && r.day_of_week
+        ? formatSpecialDays(r.day_of_week)
+        : (r.leave_type === 'Short Leave' && r.start_time && r.end_time)
+          ? `${formatTime12(r.start_time)} - ${formatTime12(r.end_time)}`
+          : (r.leave_type === 'Half Day' && r.start_time && r.end_time)
+            ? `${r.start_time} - ${r.end_time} (${r.days_count} day)`
+            : (r.start_date && r.end_date && r.start_date.split('T')[0] === r.end_date.split('T')[0]
+                ? `${r.days_count || 1} day (${r.start_date.split('T')[0]})`
+                : `${r.days_count} days (${r.start_date ? r.start_date.split('T')[0] : ''} to ${r.end_date ? r.end_date.split('T')[0] : ''})`)
+    }));
+
     return {
       stats: {
         total_employees: (allUsers || []).length,
@@ -1348,6 +1401,7 @@ const adminService = {
       specialLeaveEmployees,
       pendingLeaveRequests: pendingFormatted,
       upcomingLeaves: upcomingFormatted,
+      allLeaves: allLeavesFormatted,
       allEmployees: (allUsers || []).map(u => {
         const activeLeave = leaveMap[u.id];
         const todayWork = workMap[u.id] || '';
@@ -1814,6 +1868,42 @@ const adminService = {
     })();
 
     return { message: 'Leave rejected successfully' };
+  },
+
+  async generateFullBackup() {
+    const tables = ['users', 'leave_requests', 'daily_work_entries', 'leave_balances'];
+    const backup = {
+      manifest: {
+        exported_at: new Date().toISOString(),
+        tables_count: tables.length,
+        source: 'Supabase Database',
+        system: 'P W Holdings Employee Management System'
+      },
+      tables: {}
+    };
+
+    for (const table of tables) {
+      try {
+        const { data, error } = await supabase.from(table).select('*');
+        if (error) {
+          backup.tables[table] = { status: 'error', error: error.message, data: [] };
+        } else {
+          const tableData = data || [];
+          if (table === 'users') {
+            tableData.forEach(u => delete u.password);
+          }
+          backup.tables[table] = {
+            status: 'success',
+            record_count: tableData.length,
+            data: tableData
+          };
+        }
+      } catch (err) {
+        backup.tables[table] = { status: 'error', error: err.message, data: [] };
+      }
+    }
+
+    return backup;
   }
 };
 
@@ -2205,6 +2295,7 @@ module.exports = {
   dashboardService,
   adminService,
   profileService,
+  sendSystemEmail,
   JWT_SECRET
 };
 
