@@ -139,4 +139,6 @@ const Logger = {
   }
 };
 
+Logger.sanitize = sanitize;
+
 module.exports = Logger;

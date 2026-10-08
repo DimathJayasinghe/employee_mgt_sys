@@ -214,8 +214,10 @@ async function processBirthdayReminders({ testEmployeeId = null, force = false }
     .select('id, name, email, phone, role')
     .eq('role', 'Admin');
 
-  const fallbackEmail = process.env.BIRTHDAY_NOTIFY_TO || 'admin@pwholdings.lk';
-  const recipientList = (admins && admins.length > 0) ? admins : [{ email: fallbackEmail, phone: null, name: 'Admin' }];
+  const fallbackEmail = process.env.BIRTHDAY_NOTIFY_TO || process.env.ADMIN_EMAIL || '';
+  const recipientList = (admins && admins.length > 0) 
+    ? admins 
+    : (fallbackEmail ? [{ email: fallbackEmail, phone: null, name: 'Admin' }] : []);
 
   let totalSent = 0;
 
