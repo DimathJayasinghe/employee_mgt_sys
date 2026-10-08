@@ -164,12 +164,13 @@ async function syncEmployeeToZohoBooks(employee, isRetry = false) {
       success: false,
       error: err?.message || String(err)
     };
-  },
+  }
+}
 
   /**
    * Create a new employee entry directly in Zoho Books Custom Module 'cm_employee'
    */
-  async createZohoEmployeeRecord(empData = {}) {
+  async function createZohoEmployeeRecord(empData = {}) {
     const clientId = process.env.ZOHO_CLIENT_ID;
     const clientSecret = process.env.ZOHO_CLIENT_SECRET;
     const refreshToken = process.env.ZOHO_REFRESH_TOKEN;
@@ -288,7 +289,6 @@ async function syncEmployeeToZohoBooks(employee, isRetry = false) {
       return { success: false, message: err.message };
     }
   }
-}
 
 /**
  * Sync employee profile to Zoho CRM Custom Module (Upsert on NIC).
