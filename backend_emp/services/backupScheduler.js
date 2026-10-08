@@ -7,8 +7,8 @@ try {
 const { adminService, sendSystemEmail } = require('./backendService');
 
 const TIMEZONE = process.env.TIMEZONE || 'Asia/Colombo';
-const DAILY_BACKUP_TO_EMAIL = process.env.BACKUP_EMAIL_TO || 'pasindu.buddhima@pwholdings.lk';
-const MONTHLY_BACKUP_TO_EMAIL = process.env.MONTHLY_BACKUP_EMAIL_TO || 'hashan@pwholdings.lk';
+const DAILY_BACKUP_TO_EMAIL = process.env.BACKUP_EMAIL_TO || process.env.ADMIN_EMAIL || '';
+const MONTHLY_BACKUP_TO_EMAIL = process.env.MONTHLY_BACKUP_EMAIL_TO || process.env.BACKUP_EMAIL_TO || process.env.ADMIN_EMAIL || '';
 
 // Track last sent dates to avoid double sending on server restart/fallback
 let lastDailySentDateStr = null;
@@ -298,8 +298,8 @@ async function sendMonthlyBackupEmail({ to = MONTHLY_BACKUP_TO_EMAIL, isManual =
  */
 function initBackupCron() {
   console.log('⏰ Initializing Automatic Backup Cron Jobs...');
-  console.log('   • Daily Backup: 18:00 (6:00 PM) -> pasindu.buddhima@pwholdings.lk');
-  console.log('   • Monthly Backup: 18:00 (6:00 PM) on Last Day of Month -> hashan@pwholdings.lk');
+  console.log(`   • Daily Backup: 18:00 (6:00 PM) -> ${DAILY_BACKUP_TO_EMAIL || '[Configured Admin Email]'}`);
+  console.log(`   • Monthly Backup: 18:00 (6:00 PM) on Last Day of Month -> ${MONTHLY_BACKUP_TO_EMAIL || '[Configured Admin Email]'}`);
 
   try {
     cron.schedule('0 18 * * *', async () => {

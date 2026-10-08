@@ -5,12 +5,17 @@ const bcrypt = require('bcryptjs');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'pwholdings_secure_jwt_secret_key_2026';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '8h';
-const ADMIN_EMAILS = [
-  'hashan@pwholdings.lk',
-  'nishani@pwholdings.lk',
-  'channa@pwholdings.lk',
-  'pasindu.buddhima@pwholdings.lk'
-];
+
+// Configurable Admin & Senior Admin Email Lists (environment-driven)
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '')
+  .split(',')
+  .map(e => e.trim().toLowerCase())
+  .filter(Boolean);
+
+const SENIOR_ADMIN_EMAILS = (process.env.SENIOR_ADMIN_EMAILS || process.env.ADMIN_EMAILS || '')
+  .split(',')
+  .map(e => e.trim().toLowerCase())
+  .filter(Boolean);
 
 // In-memory OTP storage: { [email]: { otp, expiresAt, type } }
 const otpStore = {};
@@ -1066,9 +1071,14 @@ const dashboardService = {
             </table>
           </div>
         `;
+        // Dynamically resolve admin recipient emails from environment or database
+        const defaultAdmins = ADMIN_EMAILS.length > 0 ? ADMIN_EMAILS : ['admin@pwholdings.lk'];
+        const primaryAdmin = defaultAdmins[0];
+        const ccAdmins = defaultAdmins.slice(1);
+
         await sendSystemEmail({
-          to: 'hashan@pwholdings.lk',
-          cc: ['nishani@pwholdings.lk', 'channa@pwholdings.lk', 'pasindu.buddhima@pwholdings.lk'],
+          to: primaryAdmin,
+          cc: ccAdmins.length > 0 ? ccAdmins : undefined,
           subject: `Leave Request: ${u?.name || 'Employee'} - ${leave_type} (${start_date})`,
           html: htmlContent
         });
@@ -1838,14 +1848,8 @@ const adminService = {
 
       if (isOverQuota) {
         const normalizedEmail = (adminEmail || '').trim().toLowerCase();
-        const AUTHORIZED_SENIOR_ADMINS = [
-          'channet@pwholdings.lk',
-          'nishadi@pwholdings.lk',
-          'hashan@pwholdings.lk'
-        ];
-
-        if (!normalizedEmail || !AUTHORIZED_SENIOR_ADMINS.includes(normalizedEmail)) {
-          throw new Error('Over-quota leave requests can only be approved by authorized Senior Admins (channet@pwholdings.lk, nishadi@pwholdings.lk, hashan@pwholdings.lk).');
+        if (SENIOR_ADMIN_EMAILS.length > 0 && !SENIOR_ADMIN_EMAILS.includes(normalizedEmail)) {
+          throw new Error('Over-quota leave requests can only be approved by authorized Senior Administrators.');
         }
       }
     }

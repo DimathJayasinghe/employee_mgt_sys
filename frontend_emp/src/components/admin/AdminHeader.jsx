@@ -52,7 +52,7 @@ export default function AdminHeader({ title, adminUser, currentViewMode, onToggl
     setIsBackupMenuOpen(false);
     try {
       await API.post('/admin/send-backup-email', {
-        to: 'pasindu.buddhima@pwholdings.lk'
+        to: adminUser?.email || undefined
       });
       setBackupStatus('✉️ Backup Sent to Email!');
       setTimeout(() => setBackupStatus(null), 5000);
@@ -135,7 +135,7 @@ export default function AdminHeader({ title, adminUser, currentViewMode, onToggl
                   <Mail className="w-3.5 h-3.5 text-indigo-600" />
                   <div>
                     <p className="font-semibold text-slate-800">Send Backup to Email Now</p>
-                    <p className="text-[10px] text-slate-400">To: pasindu.buddhima@pwholdings.lk</p>
+                    <p className="text-[10px] text-slate-400">To: {adminUser?.email || 'Admin Inbox'}</p>
                   </div>
                 </button>
               </div>

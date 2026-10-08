@@ -1,29 +1,13 @@
 import React, { useState } from 'react';
 import { ArrowUpRight, Eye, CheckCircle2, XCircle } from 'lucide-react';
 
-const AUTHORIZED_SENIOR_ADMINS = [
-  'channet@pwholdings.lk',
-  'nishadi@pwholdings.lk',
-  'hashan@pwholdings.lk'
-];
-
 export default function PendingLeaveRequestsTable({ requests = [], currentUser, onApprove, onReject, onViewAll }) {
   const [actionSuccess, setActionSuccess] = useState(null);
 
-  const userEmail = (currentUser?.email || '').trim().toLowerCase();
-  const isAuthorizedSeniorAdmin = AUTHORIZED_SENIOR_ADMINS.includes(userEmail);
-
   const handleApproveClick = async (req) => {
-    const isExceeded = req.is_exceeded_balance || (req.user_available_balance !== undefined && req.user_available_balance <= 0);
-    
-    if (isExceeded && !isAuthorizedSeniorAdmin) {
-      alert(`⚠️ Restricted: Over-quota leave requests can only be approved by authorized Senior Admins:\n• channet@pwholdings.lk\n• nishadi@pwholdings.lk\n• hashan@pwholdings.lk`);
-      return;
-    }
-
     try {
       await onApprove(req.id);
-      setActionSuccess(`Approved leave request for ${req.employee_name}`);
+      setActionSuccess(`Approved leave request for ${req.employee_name || 'employee'}`);
       setTimeout(() => setActionSuccess(null), 3000);
     } catch (err) {
       console.error('Approve failed:', err);
