@@ -68,6 +68,7 @@ export default function LoginPage({ onLoginSuccess }) {
     try {
       const res = await API.post('/auth/login', { email, password });
       if (res.data && res.data.user) {
+        if (res.data.token) localStorage.setItem('emp_mgt_token', res.data.token);
         setSuccessMsg('Login successful! Navigating to your dashboard...');
         setTimeout(() => {
           onLoginSuccess(res.data.user);
@@ -133,6 +134,7 @@ export default function LoginPage({ onLoginSuccess }) {
         otp: otpCode
       });
       if (res.data && res.data.user) {
+        if (res.data.token) localStorage.setItem('emp_mgt_token', res.data.token);
         setSuccessMsg('Email verified! Employee account created successfully.');
         setTimeout(() => {
           onLoginSuccess(res.data.user);

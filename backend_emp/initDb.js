@@ -4,7 +4,7 @@ let isDbConnected = false;
 
 async function initDatabase() {
   try {
-    const { data, error } = await supabase.from('users').select('count', { count: 'exact', head: true });
+    const { error } = await supabase.from('users').select('id').limit(1);
     if (error) throw error;
     isDbConnected = true;
     console.log('Connected to Supabase Database successfully.');
