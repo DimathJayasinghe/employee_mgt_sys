@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Gift, Clock, Sparkles, ChevronRight, User } from 'lucide-react';
+import { Gift, Clock, Sparkles } from 'lucide-react';
 import { getBirthdayCountdown } from '../../utils/dateUtils';
 
-export default function BirthdayReminderCard({ profile, onSelectEmployee }) {
+export default function BirthdayReminderCard({ profile }) {
   const [countdown, setCountdown] = useState(() => getBirthdayCountdown(profile?.dob));
 
   useEffect(() => {
@@ -44,16 +44,6 @@ export default function BirthdayReminderCard({ profile, onSelectEmployee }) {
               </p>
             </div>
           </div>
-
-          {onSelectEmployee && (
-            <button
-              onClick={() => onSelectEmployee(profile)}
-              className="bg-white text-pink-700 hover:bg-pink-50 font-bold text-xs px-4 py-2.5 rounded-xl shadow-xs transition-all cursor-pointer flex items-center gap-1.5 shrink-0"
-            >
-              <span>View Details</span>
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          )}
         </div>
       </div>
     );
@@ -83,16 +73,6 @@ export default function BirthdayReminderCard({ profile, onSelectEmployee }) {
               </p>
             </div>
           </div>
-
-          {onSelectEmployee && (
-            <button
-              onClick={() => onSelectEmployee(profile)}
-              className="bg-white text-orange-700 hover:bg-amber-50 font-bold text-xs px-4 py-2.5 rounded-xl shadow-xs transition-all cursor-pointer flex items-center gap-1.5 shrink-0"
-            >
-              <span>View Details</span>
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          )}
         </div>
       </div>
     );
