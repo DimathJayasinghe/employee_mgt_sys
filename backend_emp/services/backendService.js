@@ -871,7 +871,7 @@ const dashboardService = {
         day_of_week: day_of_week || null,
         start_time: start_time || null,
         end_time: end_time || null,
-        special_session: isSpecial ? (special_session || 'Morning') : special_session || null,
+        special_session: isSpecial ? (special_session || 'Morning') : (special_session ? String(special_session).slice(0, 20) : null),
         is_recurring: finalRecurring,
         status: 'Pending',
         reason: reason || ''
