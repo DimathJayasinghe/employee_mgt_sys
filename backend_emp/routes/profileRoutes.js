@@ -32,10 +32,18 @@ router.post('/test/birthday-reminder', async (req, res) => {
 // Protect profile routes with requireAuth
 router.use(['/profile', '/me'], requireAuth);
 
+// Helper to resolve target user ID: only Admins can query or modify another user's profile
+function getTargetUserId(req, requestedId) {
+  if (req.user?.role === 'Admin' && requestedId) {
+    return requestedId;
+  }
+  return req.user?.id;
+}
+
 // GET /profile/me, /profile, /me
 router.get(['/profile/me', '/profile', '/me'], async (req, res) => {
   try {
-    const targetUserId = req.query.user_id || req.query.target_user_id || req.user.id;
+    const targetUserId = getTargetUserId(req, req.query.user_id || req.query.target_user_id);
     const profile = await profileService.getMyProfile(targetUserId);
     return res.json(profile);
   } catch (err) {
@@ -47,7 +55,7 @@ router.get(['/profile/me', '/profile', '/me'], async (req, res) => {
 // PATCH /profile/me, /profile, /me
 router.patch(['/profile/me', '/profile', '/me'], async (req, res) => {
   try {
-    const targetUserId = req.body.target_user_id || req.body.user_id || req.user.id;
+    const targetUserId = getTargetUserId(req, req.body.target_user_id || req.body.user_id);
     const updated = await profileService.updateMyProfile(targetUserId, req.body, req.user);
     return res.json(updated);
   } catch (err) {
@@ -79,7 +87,7 @@ router.get('/profile/admins', async (req, res) => {
 // GET /profile/activity?user_id=X
 router.get('/profile/activity', async (req, res) => {
   try {
-    const targetUserId = req.query.user_id || req.user.id;
+    const targetUserId = getTargetUserId(req, req.query.user_id);
     const activities = await profileService.getActivities(targetUserId);
     return res.json(activities);
   } catch (err) {
@@ -90,8 +98,8 @@ router.get('/profile/activity', async (req, res) => {
 // POST /profile/contact-hr
 router.post('/profile/contact-hr', async (req, res) => {
   try {
-    const { category, urgency, message, channel, user_id } = req.body;
-    const targetUserId = user_id || req.user.id;
+    const { category, urgency, message, channel } = req.body;
+    const targetUserId = req.user.id;
     const desc = `Sent HR request via ${channel || 'Support'} [Urgency: ${urgency || 'Normal'}] (${category || 'General'}): ${message ? message.slice(0, 70) : ''}`;
     await profileService.logActivity(targetUserId, 'hr_contacted', desc);
     return res.json({ message: 'HR support request logged successfully' });
@@ -104,7 +112,7 @@ router.post('/profile/contact-hr', async (req, res) => {
 // GET /profile/documents?user_id=X
 router.get('/profile/documents', async (req, res) => {
   try {
-    const targetUserId = req.query.user_id || req.user.id;
+    const targetUserId = getTargetUserId(req, req.query.user_id);
     const docs = await profileService.getDocuments(targetUserId, req.user);
     return res.json(docs);
   } catch (err) {
@@ -117,7 +125,7 @@ router.get('/profile/documents', async (req, res) => {
 router.post('/profile/documents/upload', async (req, res) => {
   try {
     const { document_data, document_name, user_id, file_type } = req.body;
-    const targetUserId = user_id || req.user.id;
+    const targetUserId = getTargetUserId(req, user_id);
 
     if (!document_data || !document_name) {
       return res.status(400).json({ error: 'document_data and document_name are required' });
@@ -191,7 +199,7 @@ router.delete('/profile/documents/:id', async (req, res) => {
 router.post('/profile/photo/upload', async (req, res) => {
   try {
     const { photo_data, target_user_id } = req.body;
-    const targetUserId = target_user_id || req.user.id;
+    const targetUserId = getTargetUserId(req, target_user_id);
 
     if (!photo_data) {
       return res.status(400).json({ error: 'photo_data is required' });
@@ -247,7 +255,7 @@ router.post('/profile/photo/upload', async (req, res) => {
 // DELETE /profile/photo
 router.delete('/profile/photo', async (req, res) => {
   try {
-    const targetUserId = req.query.target_user_id || req.user.id;
+    const targetUserId = getTargetUserId(req, req.query.target_user_id);
     const result = await profileService.deletePhotoUrl(targetUserId, req.user);
     return res.json(result);
   } catch (err) {

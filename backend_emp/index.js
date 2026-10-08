@@ -20,9 +20,24 @@ app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
+// Structured Request Logging (Outputs cleanly to Vercel Runtime Logs & Dev Console)
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    console.log(`[HTTP ${req.method}] ${req.originalUrl || req.url} -> ${res.statusCode} (${duration}ms)`);
+  });
+  next();
+});
+
 // Basic health check routes
 app.get(['/api/health', '/health'], (req, res) => {
-  res.json({ status: 'API is running', timestamp: new Date().toISOString() });
+  res.json({
+    status: 'API is healthy and operational',
+    environment: process.env.NODE_ENV || 'development',
+    isVercel: Boolean(process.env.VERCEL),
+    timestamp: new Date().toISOString()
+  });
 });
 
 // Initialize Database connection & Background Crons
@@ -33,11 +48,24 @@ if (process.env.NODE_ENV !== 'test' && !process.env.VERCEL) {
 }
 
 // API Routes
+app.use('/api/auth', authRoutes);
 app.use('/api', dashboardRoutes);
 app.use('/api/admin', adminRoutes);
-app.use('/api/auth', authRoutes);
 app.use('/api', zohoRoutes);
 app.use('/api', profileRoutes);
+
+// API 404 Catch-all
+app.use('/api', (req, res) => {
+  res.status(404).json({ error: `API route ${req.method} ${req.originalUrl || req.url} not found` });
+});
+
+// Centralized error handler for all API requests
+app.use((err, req, res, next) => {
+  console.error(`❌ [Unhandled API Error] ${req.method} ${req.originalUrl || req.url}:`, err.stack || err.message);
+  res.status(err.status || err.statusCode || 500).json({
+    error: err.message || 'Internal Server Error'
+  });
+});
 
 if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
   app.listen(PORT, () => {

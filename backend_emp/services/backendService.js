@@ -398,9 +398,27 @@ const authService = {
     }
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+    const salt = bcrypt.genSaltSync(10);
+    const codeHash = bcrypt.hashSync(otp, salt);
+
+    // Save to database auth_otps table (with fallback to in-memory otpStore)
+    try {
+      await supabase.from('auth_otps').upsert({
+        email: cleanEmail,
+        type: type,
+        code_hash: codeHash,
+        expires_at: expiresAt,
+        last_sent_at: new Date().toISOString()
+      }, { onConflict: 'email,type' });
+    } catch (dbErr) {
+      console.warn('DB OTP upsert warning:', dbErr.message);
+    }
+
+    // Keep in memory as fallback
     otpStore[cleanEmail] = {
       otp: otp,
-      expiresAt: Date.now() + 10 * 60 * 1000, // 10 mins
+      expiresAt: Date.now() + 10 * 60 * 1000,
       type: type
     };
 
@@ -439,10 +457,42 @@ const authService = {
     }
 
     const cleanEmail = email.trim().toLowerCase();
-    const cleanOtp = otp.trim();
-    const stored = otpStore[cleanEmail];
+    const cleanOtp = String(otp).trim();
+    let isOtpValid = false;
 
-    if (!stored || stored.otp !== cleanOtp || stored.type !== 'register' || Date.now() > stored.expiresAt) {
+    // 1. Check DB auth_otps
+    try {
+      const { data: dbOtps, error: dbErr } = await supabase
+        .from('auth_otps')
+        .select('*')
+        .eq('email', cleanEmail)
+        .eq('type', 'register')
+        .order('expires_at', { ascending: false })
+        .limit(1);
+
+      if (!dbErr && dbOtps && dbOtps.length > 0) {
+        const record = dbOtps[0];
+        if (new Date(record.expires_at) > new Date()) {
+          if (bcrypt.compareSync(cleanOtp, record.code_hash) || record.code_hash === cleanOtp) {
+            isOtpValid = true;
+            await supabase.from('auth_otps').delete().eq('id', record.id);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('DB OTP verify warning:', e.message);
+    }
+
+    // 2. Fallback to memory
+    if (!isOtpValid && otpStore[cleanEmail]) {
+      const stored = otpStore[cleanEmail];
+      if (stored.otp === cleanOtp && stored.type === 'register' && Date.now() <= stored.expiresAt) {
+        isOtpValid = true;
+        delete otpStore[cleanEmail];
+      }
+    }
+
+    if (!isOtpValid) {
       throw new Error('Invalid or expired verification code');
     }
 
@@ -457,6 +507,7 @@ const authService = {
 
     const initials = getInitials(name);
     const role = ADMIN_EMAILS.includes(cleanEmail) ? 'Admin' : 'Employee';
+    const hashedPassword = bcrypt.hashSync(password, 10);
 
     const { data: insertedUsers, error: insertErr } = await supabase
       .from('users')
@@ -464,7 +515,7 @@ const authService = {
         name: name.trim(),
         department: department || 'IT',
         email: cleanEmail,
-        password: password,
+        password: hashedPassword,
         initials: initials,
         status: 'Working',
         role: role
@@ -478,13 +529,17 @@ const authService = {
     const newUser = insertedUsers[0];
 
     // Initialize 24-day leave balance
-    await supabase
-      .from('leave_balances')
-      .insert([{
-        user_id: newUser.id,
-        total_days: 24.00,
-        used_days: 0.00
-      }]);
+    try {
+      await supabase
+        .from('leave_balances')
+        .insert([{
+          user_id: newUser.id,
+          total_days: 24.00,
+          used_days: 0.00
+        }]);
+    } catch (lbErr) {
+      console.warn('Leave balance init warning:', lbErr.message);
+    }
 
     delete otpStore[cleanEmail];
     delete newUser.password;
@@ -506,16 +561,49 @@ const authService = {
     }
 
     const cleanEmail = email.trim().toLowerCase();
-    const cleanOtp = otp.trim();
-    const stored = otpStore[cleanEmail];
+    const cleanOtp = String(otp).trim();
+    let isOtpValid = false;
 
-    if (!stored || stored.otp !== cleanOtp || stored.type !== 'reset-password' || Date.now() > stored.expiresAt) {
+    // 1. Check DB auth_otps
+    try {
+      const { data: dbOtps, error: dbErr } = await supabase
+        .from('auth_otps')
+        .select('*')
+        .eq('email', cleanEmail)
+        .eq('type', 'reset-password')
+        .order('expires_at', { ascending: false })
+        .limit(1);
+
+      if (!dbErr && dbOtps && dbOtps.length > 0) {
+        const record = dbOtps[0];
+        if (new Date(record.expires_at) > new Date()) {
+          if (bcrypt.compareSync(cleanOtp, record.code_hash) || record.code_hash === cleanOtp) {
+            isOtpValid = true;
+            await supabase.from('auth_otps').delete().eq('id', record.id);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('DB OTP verify warning:', e.message);
+    }
+
+    // 2. Fallback to memory
+    if (!isOtpValid && otpStore[cleanEmail]) {
+      const stored = otpStore[cleanEmail];
+      if (stored.otp === cleanOtp && stored.type === 'reset-password' && Date.now() <= stored.expiresAt) {
+        isOtpValid = true;
+        delete otpStore[cleanEmail];
+      }
+    }
+
+    if (!isOtpValid) {
       throw new Error('Invalid or expired verification code');
     }
 
+    const hashedPassword = bcrypt.hashSync(newPassword, 10);
     const { error } = await supabase
       .from('users')
-      .update({ password: newPassword })
+      .update({ password: hashedPassword })
       .ilike('email', cleanEmail);
 
     if (error) throw new Error(error.message || 'Failed to update password');
@@ -2148,13 +2236,23 @@ const profileService = {
   },
 
   async getUpcomingBirthdays() {
-    const { data: users, error } = await supabase
-      .from('users')
-      .select('id, name, initials, dob, photo_url, department, designation')
-      .not('dob', 'is', null);
+    try {
+      const { data: users, error } = await supabase
+        .from('users')
+        .select('id, name, initials, dob, photo_url, department, designation')
+        .not('dob', 'is', null);
 
-    if (error) throw error;
-    return users || [];
+      if (error) {
+        // Fallback for older schemas where specific columns might not exist
+        const { data: fallback, error: fbErr } = await supabase.from('users').select('*');
+        if (fbErr || !fallback) return [];
+        return fallback.filter(u => u.dob);
+      }
+      return users || [];
+    } catch (err) {
+      console.warn('Upcoming birthdays exception:', err.message);
+      return [];
+    }
   },
 
   async getAdmins() {
@@ -2165,8 +2263,11 @@ const profileService = {
         .eq('role', 'Admin');
 
       if (error) {
-        console.warn('Error fetching admins in getAdmins:', error.message);
-        return [];
+        const { data: fallback } = await supabase
+          .from('users')
+          .select('id, name, email, role')
+          .eq('role', 'Admin');
+        return fallback || [];
       }
       return admins || [];
     } catch (err) {
@@ -2208,7 +2309,7 @@ const profileService = {
 
   async getDocuments(userId, requestingUser) {
     if (!userId) throw new Error('user_id is required');
-    const isOwnerOrAdmin = requestingUser?.role === 'Admin' || requestingUser?.id === userId;
+    const isOwnerOrAdmin = requestingUser?.role === 'Admin' || String(requestingUser?.id) === String(userId);
     if (!isOwnerOrAdmin) {
       const err = new Error('Access denied');
       err.status = 403;
@@ -2260,7 +2361,7 @@ const profileService = {
     }
 
     const doc = docs[0];
-    const isOwnerOrAdmin = requestingUser?.role === 'Admin' || requestingUser?.id === doc.user_id;
+    const isOwnerOrAdmin = requestingUser?.role === 'Admin' || String(requestingUser?.id) === String(doc.user_id);
     if (!isOwnerOrAdmin) {
       const err = new Error('Access denied');
       err.status = 403;
@@ -2281,7 +2382,7 @@ const profileService = {
   },
 
   async updatePhotoUrl(targetUserId, photoUrl, requestingUser) {
-    const isOwnerOrAdmin = requestingUser?.role === 'Admin' || requestingUser?.id === targetUserId;
+    const isOwnerOrAdmin = requestingUser?.role === 'Admin' || String(requestingUser?.id) === String(targetUserId);
     if (!isOwnerOrAdmin) {
       const err = new Error('Access denied');
       err.status = 403;
@@ -2314,7 +2415,7 @@ const profileService = {
   },
 
   async deletePhotoUrl(targetUserId, requestingUser) {
-    const isOwnerOrAdmin = requestingUser?.role === 'Admin' || requestingUser?.id === targetUserId;
+    const isOwnerOrAdmin = requestingUser?.role === 'Admin' || String(requestingUser?.id) === String(targetUserId);
     if (!isOwnerOrAdmin) {
       const err = new Error('Access denied');
       err.status = 403;

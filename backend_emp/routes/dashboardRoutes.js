@@ -1,14 +1,22 @@
 const express = require('express');
 const router = express.Router();
 const { dashboardService } = require('../services/backendService');
-const { authenticateToken } = require('../middleware/authMiddleware');
+const requireAuth = require('../middleware/requireAuth');
 
-router.use(authenticateToken);
+router.use(['/dashboard', '/work-entry', '/leave', '/user'], requireAuth);
+
+// Helper to resolve effective user ID ensuring employees cannot access or modify other accounts
+function getEffectiveUserId(req, requestedUserId) {
+  if (req.user?.role === 'Admin' && requestedUserId) {
+    return requestedUserId;
+  }
+  return req.user?.id;
+}
 
 // GET /api/dashboard/summary?user_id=X
 router.get('/dashboard/summary', async (req, res) => {
   try {
-    const userId = req.query.user_id || req.user?.id;
+    const userId = getEffectiveUserId(req, req.query.user_id);
     if (!userId) return res.status(400).json({ error: 'user_id is required' });
     const result = await dashboardService.getDashboardSummary(userId);
     res.json(result);
@@ -21,7 +29,7 @@ router.get('/dashboard/summary', async (req, res) => {
 // GET /api/work-entry/history?user_id=X
 router.get('/work-entry/history', async (req, res) => {
   try {
-    const userId = req.query.user_id || req.user?.id;
+    const userId = getEffectiveUserId(req, req.query.user_id);
     if (!userId) return res.status(400).json({ error: 'user_id is required' });
     const result = await dashboardService.getWorkHistory(userId);
     res.json(result);
@@ -34,7 +42,7 @@ router.get('/work-entry/history', async (req, res) => {
 // POST /api/work-entry
 router.post('/work-entry', async (req, res) => {
   try {
-    const userId = req.body.user_id || req.user?.id;
+    const userId = getEffectiveUserId(req, req.body.user_id);
     const workDescription = req.body.work_description;
     const clients = req.body.clients || [];
     const result = await dashboardService.saveWorkEntry(userId, workDescription, clients);
@@ -48,7 +56,7 @@ router.post('/work-entry', async (req, res) => {
 // GET /api/leave/history?user_id=X
 router.get('/leave/history', async (req, res) => {
   try {
-    const userId = req.query.user_id || req.user?.id;
+    const userId = getEffectiveUserId(req, req.query.user_id);
     if (!userId) return res.status(400).json({ error: 'user_id is required' });
     const result = await dashboardService.getLeaveHistory(userId);
     res.json(result);
@@ -61,8 +69,8 @@ router.get('/leave/history', async (req, res) => {
 // POST /api/leave/apply
 router.post('/leave/apply', async (req, res) => {
   try {
-    const body = { ...req.body };
-    if (!body.user_id && req.user?.id) body.user_id = req.user.id;
+    const userId = getEffectiveUserId(req, req.body.user_id);
+    const body = { ...req.body, user_id: userId };
     const result = await dashboardService.applyLeave(body);
     res.json(result);
   } catch (err) {
@@ -75,7 +83,7 @@ router.post('/leave/apply', async (req, res) => {
 router.post('/leave/cancel', async (req, res) => {
   try {
     const { id, user_id } = req.body;
-    const finalUserId = user_id || req.user?.id;
+    const finalUserId = getEffectiveUserId(req, user_id);
     const result = await dashboardService.cancelLeave(id, finalUserId);
     res.json(result);
   } catch (err) {
@@ -87,7 +95,7 @@ router.post('/leave/cancel', async (req, res) => {
 // PATCH /api/user/status
 router.patch('/user/status', async (req, res) => {
   try {
-    const userId = req.body.user_id || req.user?.id;
+    const userId = getEffectiveUserId(req, req.body.user_id);
     const status = req.body.status;
     const result = await dashboardService.updateUserStatus(userId, status);
     res.json(result);
