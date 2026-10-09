@@ -325,7 +325,7 @@ export default function LeaveCalendarView() {
                       </div>
                       <div>
                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Reason / Session</span>
-                        <span className="font-semibold text-slate-700 truncate block">
+                        <span className="font-semibold text-slate-700 whitespace-pre-wrap break-words block leading-relaxed">
                           {leave.reason || 'Personal'}
                         </span>
                       </div>

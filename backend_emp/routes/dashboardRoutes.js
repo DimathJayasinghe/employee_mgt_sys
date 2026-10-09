@@ -15,14 +15,22 @@ function getEffectiveUserId(req, requestedUserId) {
 
 // GET /api/dashboard/summary?user_id=X
 router.get('/dashboard/summary', async (req, res) => {
+  const userId = getEffectiveUserId(req, req.query.user_id);
+  if (!userId) return res.status(400).json({ error: 'user_id is required' });
+
   try {
-    const userId = getEffectiveUserId(req, req.query.user_id);
-    if (!userId) return res.status(400).json({ error: 'user_id is required' });
     const result = await dashboardService.getDashboardSummary(userId);
-    res.json(result);
+    return res.json(result);
   } catch (err) {
-    console.error('Dashboard summary error:', err.message);
-    res.status(500).json({ error: err.message || 'Failed to fetch dashboard summary' });
+    console.warn(`[Dashboard Summary] Primary attempt failed for user ${userId} (${err.message}). Retrying in 250ms...`);
+    try {
+      await new Promise(r => setTimeout(r, 250));
+      const retryResult = await dashboardService.getDashboardSummary(userId);
+      return res.json(retryResult);
+    } catch (retryErr) {
+      console.error(`[Dashboard Summary] Retry also failed for user ${userId}:`, retryErr.message);
+      return res.status(500).json({ error: retryErr.message || 'Failed to fetch dashboard summary' });
+    }
   }
 });
 

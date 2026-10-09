@@ -59,7 +59,7 @@ export default function TodaysLeaveCards({ leaves = [] }) {
 
               <div className="text-xs">
                 <span className="text-[11px] text-slate-400 font-medium block">Reason</span>
-                <span className="font-medium text-slate-700 text-xs mt-0.5 block">{item.reason || 'Personal'}</span>
+                <span className="font-medium text-slate-700 text-xs mt-0.5 block whitespace-pre-wrap break-words leading-relaxed">{item.reason || 'Personal'}</span>
               </div>
             </div>
           ))}

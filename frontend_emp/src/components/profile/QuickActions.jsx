@@ -58,13 +58,15 @@ export default function QuickActions({ profile, onOpenEditModal, onOpenDocuments
 
         <div className="space-y-2.5">
           {/* Action 1: Edit Profile */}
-          <button
-            onClick={onOpenEditModal}
-            className="w-full bg-[#022851] hover:bg-[#03376e] active:scale-[0.99] text-white text-xs font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer"
-          >
-            <Edit3 className="w-4 h-4" />
-            <span>Edit Profile</span>
-          </button>
+          {onOpenEditModal && (
+            <button
+              onClick={onOpenEditModal}
+              className="w-full bg-[#022851] hover:bg-[#03376e] active:scale-[0.99] text-white text-xs font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer"
+            >
+              <Edit3 className="w-4 h-4" />
+              <span>Edit Profile</span>
+            </button>
+          )}
 
           {/* Action 2: View Documents */}
           <button

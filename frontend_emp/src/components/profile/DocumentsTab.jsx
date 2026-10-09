@@ -38,16 +38,16 @@ export default function DocumentsTab({ userId, isSelfOrAdmin = true }) {
     setError(null);
     setSuccessMsg('');
 
-    // Client-side validation: pdf/jpg/png, max 5 MB
+    // Client-side validation: pdf/jpg/png, max 10 MB
     const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
     if (!allowedTypes.includes(file.type)) {
       setError('Invalid file format. Allowed: PDF, JPG, PNG, WEBP.');
       return;
     }
 
-    const maxSize = 5 * 1024 * 1024; // 5 MB
+    const maxSize = 10 * 1024 * 1024; // 10 MB
     if (file.size > maxSize) {
-      setError('File size exceeds the 5 MB limit.');
+      setError('File size exceeds the 10 MB limit.');
       return;
     }
 
@@ -114,7 +114,7 @@ export default function DocumentsTab({ userId, isSelfOrAdmin = true }) {
             <span>Employee Documents</span>
           </h3>
           <p className="text-xs text-slate-500 mt-0.5">
-            Upload and manage official documents (PDF, JPG, PNG up to 5 MB).
+            Upload and manage official documents (PDF, JPG, PNG up to 10 MB).
           </p>
         </div>
 

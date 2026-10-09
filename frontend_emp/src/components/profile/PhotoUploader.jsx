@@ -17,16 +17,16 @@ export default function PhotoUploader({ isOpen, onClose, profile, onPhotoUpdated
 
     setError(null);
 
-    // Client-side validation: jpg/png/webp, max 2 MB
+    // Client-side validation: jpg/png/webp, max 10 MB
     const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'];
     if (!allowedTypes.includes(file.type)) {
       setError('Invalid file format. Please upload JPG, PNG, or WEBP.');
       return;
     }
 
-    const maxSize = 2 * 1024 * 1024; // 2 MB
+    const maxSize = 10 * 1024 * 1024; // 10 MB
     if (file.size > maxSize) {
-      setError('Image size exceeds the 2 MB limit.');
+      setError('Image size exceeds the 10 MB limit.');
       return;
     }
 
@@ -140,7 +140,7 @@ export default function PhotoUploader({ isOpen, onClose, profile, onPhotoUpdated
             )}
           </div>
           <p className="text-[11px] text-slate-400 mt-2 font-medium">
-            JPG, PNG, or WEBP up to 2 MB
+            JPG, PNG, or WEBP up to 10 MB
           </p>
         </div>
 

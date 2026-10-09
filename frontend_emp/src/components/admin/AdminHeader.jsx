@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Search, ChevronDown, User, ShieldCheck, Menu, Database, Download, Mail, Loader2, CheckCircle2, Clock } from 'lucide-react';
 import API from '../../api';
 
-export default function AdminHeader({ title, adminUser, currentViewMode, onToggleViewMode, onMenuClick }) {
+export default function AdminHeader({ title, adminUser, currentViewMode, onToggleViewMode, onOpenMyProfile, onMenuClick }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isBackupMenuOpen, setIsBackupMenuOpen] = useState(false);
   const [isBackingUp, setIsBackingUp] = useState(false);
@@ -200,13 +200,26 @@ export default function AdminHeader({ title, adminUser, currentViewMode, onToggl
             <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-slate-200 py-1.5 z-20 text-xs font-medium text-slate-700">
               <div className="px-3 py-2 border-b border-slate-100">
                 <p className="font-bold text-slate-900">{adminUser?.name || 'Administrator'}</p>
+                <p className="text-[10px] text-slate-500 font-medium">{adminUser?.email || ''}</p>
               </div>
+              
+              <button
+                onClick={() => {
+                  if (onOpenMyProfile) onOpenMyProfile();
+                  setIsMenuOpen(false);
+                }}
+                className="w-full text-left px-3 py-2.5 hover:bg-blue-50 text-slate-800 font-bold flex items-center gap-2 border-b border-slate-100 cursor-pointer"
+              >
+                <User className="w-3.5 h-3.5 text-blue-600" />
+                <span>My Profile</span>
+              </button>
+
               <button
                 onClick={() => {
                   onToggleViewMode();
                   setIsMenuOpen(false);
                 }}
-                className="w-full text-left px-3 py-2 hover:bg-slate-50 text-blue-600 font-semibold"
+                className="w-full text-left px-3 py-2 hover:bg-slate-50 text-blue-600 font-semibold cursor-pointer"
               >
                 Switch View Mode
               </button>

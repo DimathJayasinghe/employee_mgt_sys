@@ -13,7 +13,7 @@ if (!supabaseUrl || !supabaseKey) {
   console.warn('⚠️ SUPABASE_URL or SUPABASE key is missing in environment variables. Database operations will fail.');
 }
 
-const supabase = createClient(supabaseUrl, supabaseKey, {
+const supabase = createClient(supabaseUrl || 'https://placeholder.supabase.co', supabaseKey || 'placeholder-key', {
   auth: {
     persistSession: false,
     autoRefreshToken: false

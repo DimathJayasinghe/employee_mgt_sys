@@ -1,6 +1,6 @@
 import React from 'react';
 import { ArrowLeft, Edit3, Briefcase, FileText, Calendar, Camera } from 'lucide-react';
-import { formatDateDot } from '../../utils/dateUtils';
+import { formatDateDot, calculateTenure } from '../../utils/dateUtils';
 
 export default function ProfileHero({ profile, onBack, onOpenEditModal, onOpenPhotoModal }) {
   const name = profile?.name || 'Employee';
@@ -8,7 +8,9 @@ export default function ProfileHero({ profile, onBack, onOpenEditModal, onOpenPh
   const cardDesignation = profile?.card_designation || '';
   const empCode = profile?.emp_code || '-';
   const department = profile?.department || '-';
-  const joinedDate = formatDateDot(profile?.date_joined);
+  const rawJoined = profile?.date_joined || profile?.joined_date;
+  const joinedDate = formatDateDot(rawJoined);
+  const tenure = calculateTenure(rawJoined);
   const status = profile?.status || 'Working';
 
   // Parse skill chips: first 4 + (+N)
@@ -121,7 +123,9 @@ export default function ProfileHero({ profile, onBack, onOpenEditModal, onOpenPh
             <span className="flex items-center gap-1.5">
               <Calendar className="w-3.5 h-3.5 text-blue-400" />
               <span>Joined:</span>
-              <span className="text-slate-300 font-medium">{joinedDate}</span>
+              <span className="text-slate-300 font-medium">
+                {joinedDate} {tenure.text !== '-' && <span className="text-emerald-400 font-bold ml-1">{tenure.text}</span>}
+              </span>
             </span>
           </div>
 
