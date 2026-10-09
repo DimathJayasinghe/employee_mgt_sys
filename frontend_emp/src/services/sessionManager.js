@@ -112,12 +112,22 @@ class SessionManager {
     if (!user) return;
     try {
       const sessionToken = token || user.token || '';
-      const userPayload = { ...user };
+      // Sanitize user object: only store necessary display metadata, never passwords, tokens, or raw credentials in user object
+      const safeUser = {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        department: user.department,
+        designation: user.designation,
+        initials: user.initials,
+        photo_url: user.photo_url,
+        emp_code: user.emp_code
+      };
       if (sessionToken) {
-        userPayload.token = sessionToken;
         localStorage.setItem(STORAGE_KEY_TOKEN, sessionToken);
       }
-      localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(userPayload));
+      localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(safeUser));
       this.recordActivity();
     } catch (err) {
       console.warn('Failed to persist session to localStorage:', err);

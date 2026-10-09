@@ -57,7 +57,8 @@ router.get('/leave-calendar', async (req, res) => {
 router.post('/leave/approve', async (req, res) => {
   try {
     const { id } = req.body;
-    const admin_email = req.user?.email || req.body.admin_email;
+    // Strictly use authenticated user's email from JWT token to prevent spoofing
+    const admin_email = req.user?.email;
     const result = await adminService.approveLeave(id, admin_email);
     res.json(result);
   } catch (err) {

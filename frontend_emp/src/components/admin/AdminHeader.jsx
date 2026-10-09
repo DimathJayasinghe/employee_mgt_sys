@@ -1,13 +1,33 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, ChevronDown, User, ShieldCheck, Menu, Database, Download, Mail, Loader2, CheckCircle2, Clock } from 'lucide-react';
 import API from '../../api';
 
-export default function AdminHeader({ title, adminUser, currentViewMode, onToggleViewMode, onOpenMyProfile, onMenuClick }) {
+export default function AdminHeader({ title, adminUser, currentViewMode, onToggleViewMode, onOpenMyProfile, onMenuClick, onSelectEmployee }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isBackupMenuOpen, setIsBackupMenuOpen] = useState(false);
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [backupStatus, setBackupStatus] = useState(null);
+
+  // Live Employee Search State
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setSearchResults([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      try {
+        const res = await API.get(`/profile/search?q=${encodeURIComponent(searchQuery.trim())}`);
+        if (Array.isArray(res.data)) setSearchResults(res.data);
+      } catch (err) {
+        console.warn('Admin search error:', err.message);
+      }
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   const formattedDate = new Intl.DateTimeFormat('en-US', {
     weekday: 'long',
@@ -170,14 +190,43 @@ export default function AdminHeader({ title, adminUser, currentViewMode, onToggl
           )}
         </button>
 
-        {/* Search Bar */}
+        {/* Search Bar with live search dropdown */}
         <div className="relative hidden sm:block">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             type="text"
-            placeholder="Search"
-            className="bg-slate-50 border border-slate-200 text-sm text-slate-700 placeholder-slate-400 rounded-xl pl-9 pr-4 py-1.5 w-40 md:w-56 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+            placeholder="Search employees..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="bg-slate-50 border border-slate-200 text-xs text-slate-700 placeholder-slate-400 rounded-xl pl-9 pr-4 py-2 w-44 md:w-60 focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
           />
+          {searchResults.length > 0 && (
+            <div className="absolute left-0 mt-1.5 w-72 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-50 text-xs divide-y divide-slate-100 max-h-64 overflow-y-auto">
+              {searchResults.map(emp => (
+                <div
+                  key={emp.id}
+                  onClick={() => {
+                    if (onSelectEmployee) onSelectEmployee(emp);
+                    setSearchQuery('');
+                    setSearchResults([]);
+                  }}
+                  className="p-2.5 hover:bg-blue-50 flex items-center gap-2.5 cursor-pointer transition-colors"
+                >
+                  <div className="w-7 h-7 rounded-full bg-slate-800 text-white font-bold text-[10px] flex items-center justify-center shrink-0">
+                    {emp.photo_url ? (
+                      <img src={emp.photo_url} alt="" className="w-full h-full rounded-full object-cover" />
+                    ) : (
+                      emp.initials || 'EP'
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-bold text-slate-900 truncate">{emp.name}</p>
+                    <p className="text-[10px] text-slate-400 truncate">{emp.designation || emp.department || 'Employee'}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Profile Avatar & Dropdown */}

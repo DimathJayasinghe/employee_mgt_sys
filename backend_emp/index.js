@@ -22,8 +22,34 @@ const { notFoundHandler, errorHandler } = require('./middleware/errorHandler');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Secure CORS Origin Whitelisting
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  'https://employeemgtsys-phi.vercel.app',
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'http://localhost:5000'
+].filter(Boolean);
+
 app.use(securityHeaders);
-app.use(cors());
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow non-browser requests or whitelisted browser origins
+    if (!origin || allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
+      callback(null, true);
+    } else {
+      // In development, permit localhost variations
+      if (process.env.NODE_ENV !== 'production' && origin.includes('localhost')) {
+        callback(null, true);
+      } else {
+        callback(new Error(`Blocked by CORS policy: Origin ${origin} is not allowed`));
+      }
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'x-test-key']
+}));
 app.use(express.json({ limit: '25mb' }));
 app.use(express.urlencoded({ limit: '25mb', extended: true }));
 

@@ -32,6 +32,9 @@ function errorHandler(err, req, res, next) {
   if (sanitizedBody && typeof sanitizedBody === 'object') {
     if (sanitizedBody.password) sanitizedBody.password = '[REDACTED]';
     if (sanitizedBody.newPassword) sanitizedBody.newPassword = '[REDACTED]';
+    if (sanitizedBody.new_password) sanitizedBody.new_password = '[REDACTED]';
+    if (sanitizedBody.current_password) sanitizedBody.current_password = '[REDACTED]';
+    if (sanitizedBody.confirmPassword) sanitizedBody.confirmPassword = '[REDACTED]';
     if (sanitizedBody.otp) sanitizedBody.otp = '[REDACTED]';
     if (sanitizedBody.token) sanitizedBody.token = '[REDACTED]';
     if (sanitizedBody.document_data) sanitizedBody.document_data = '[BASE64_TRUNCATED]';

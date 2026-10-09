@@ -22,9 +22,6 @@ const SENIOR_ADMIN_EMAILS = (process.env.SENIOR_ADMIN_EMAILS || process.env.ADMI
   .map(e => e.trim().toLowerCase())
   .filter(Boolean);
 
-// In-memory OTP storage: { [email]: { otp, expiresAt, type } }
-const otpStore = {};
-
 const TIMEZONE = process.env.TIMEZONE || 'Asia/Colombo';
 
 // Helper: Get current date and time components in Sri Lanka (Asia/Colombo) timezone
@@ -390,16 +387,9 @@ const authService = {
       } catch (e) {
         isPasswordValid = false;
       }
-    } else if (user.password && typeof user.password === 'string' && user.password === password) {
-      // Legacy plaintext password auto-upgrade: upgrade to strong bcrypt hash immediately
-      isPasswordValid = true;
-      try {
-        const upgradedHash = bcrypt.hashSync(password, 10);
-        await supabase.from('users').update({ password: upgradedHash }).eq('id', user.id);
-        console.log(`[Security] Auto-upgraded user ${user.id} password to bcrypt upon login`);
-      } catch (upgradeErr) {
-        console.warn(`[Security] Failed to auto-upgrade password for user ${user.id}:`, upgradeErr.message);
-      }
+    } else {
+      // Deprecated: Reject any legacy non-bcrypt passwords for security
+      isPasswordValid = false;
     }
 
     if (!isPasswordValid) {
@@ -454,25 +444,19 @@ const authService = {
     const salt = bcrypt.genSaltSync(10);
     const codeHash = bcrypt.hashSync(otp, salt);
 
-    // Save to database auth_otps table (with fallback to in-memory otpStore)
-    try {
-      await supabase.from('auth_otps').upsert({
-        email: cleanEmail,
-        type: type,
-        code_hash: codeHash,
-        expires_at: expiresAt,
-        last_sent_at: new Date().toISOString()
-      }, { onConflict: 'email,type' });
-    } catch (dbErr) {
-      console.warn('DB OTP upsert warning:', dbErr.message);
-    }
+    // Save to database auth_otps table
+    const { error: dbErr } = await supabase.from('auth_otps').upsert({
+      email: cleanEmail,
+      type: type,
+      code_hash: codeHash,
+      expires_at: expiresAt,
+      last_sent_at: new Date().toISOString()
+    }, { onConflict: 'email,type' });
 
-    // Keep in memory as fallback
-    otpStore[cleanEmail] = {
-      otp: otp,
-      expiresAt: Date.now() + 10 * 60 * 1000,
-      type: type
-    };
+    if (dbErr) {
+      console.error('Fatal DB OTP upsert error:', dbErr.message);
+      throw new Error('Failed to generate secure verification code. Please try again.');
+    }
 
     const isRegister = type === 'register';
     const subject = isRegister 
@@ -535,15 +519,6 @@ const authService = {
       console.warn('DB OTP verify warning:', e.message);
     }
 
-    // 2. Fallback to memory
-    if (!isOtpValid && otpStore[cleanEmail]) {
-      const stored = otpStore[cleanEmail];
-      if (stored.otp === cleanOtp && stored.type === 'register' && Date.now() <= stored.expiresAt) {
-        isOtpValid = true;
-        delete otpStore[cleanEmail];
-      }
-    }
-
     if (!isOtpValid) {
       throw new Error('Invalid or expired verification code');
     }
@@ -593,7 +568,6 @@ const authService = {
       console.warn('Leave balance init warning:', lbErr.message);
     }
 
-    delete otpStore[cleanEmail];
     delete newUser.password;
 
     const token = jwt.sign(
@@ -645,15 +619,6 @@ const authService = {
       console.warn('DB OTP verify warning:', e.message);
     }
 
-    // 2. Fallback to memory
-    if (!isOtpValid && otpStore[cleanEmail]) {
-      const stored = otpStore[cleanEmail];
-      if (stored.otp === cleanOtp && stored.type === 'reset-password' && Date.now() <= stored.expiresAt) {
-        isOtpValid = true;
-        delete otpStore[cleanEmail];
-      }
-    }
-
     if (!isOtpValid) {
       throw new Error('Invalid or expired verification code');
     }
@@ -666,7 +631,6 @@ const authService = {
 
     if (error) throw new Error(error.message || 'Failed to update password');
 
-    delete otpStore[cleanEmail];
     return { message: 'Password reset successfully' };
   },
 
@@ -2199,14 +2163,20 @@ const profileService = {
     const targetProfile = await this.getMyProfile(userId);
     const resolvedId = targetProfile.id;
 
+    if (!requestingUser) {
+      const err = new Error('Authentication required to update profile.');
+      err.status = 401;
+      throw err;
+    }
+
     // Strict Permission Rule: Profile owner or Admin can update profile data
-    const isOwner = requestingUser && (
+    const isOwner = (
       String(requestingUser.id) === String(resolvedId) ||
       (requestingUser.email && targetProfile.email && requestingUser.email.toLowerCase() === targetProfile.email.toLowerCase()) ||
       requestingUser.role === 'Admin'
     );
 
-    if (requestingUser && !isOwner) {
+    if (!isOwner) {
       const err = new Error('Access denied: Employee profiles are View Only. Only the profile owner or an Admin can edit this profile.');
       err.status = 403;
       throw err;
@@ -2736,8 +2706,8 @@ const profileService = {
       let isCurrentValid = false;
       if (user.password && (user.password.startsWith('$2a$') || user.password.startsWith('$2b$') || user.password.startsWith('$2y$'))) {
         isCurrentValid = bcrypt.compareSync(current_password, user.password);
-      } else if (user.password && user.password === current_password) {
-        isCurrentValid = true;
+      } else {
+        isCurrentValid = false;
       }
 
       if (!isCurrentValid) {
