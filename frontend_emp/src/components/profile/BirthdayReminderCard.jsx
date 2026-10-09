@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Gift, Clock, Sparkles, ChevronRight, User } from 'lucide-react';
+import { Gift, Clock, Sparkles } from 'lucide-react';
 import { getBirthdayCountdown } from '../../utils/dateUtils';
 
-export default function BirthdayReminderCard({ profile, onSelectEmployee }) {
+export default function BirthdayReminderCard({ profile }) {
   const [countdown, setCountdown] = useState(() => getBirthdayCountdown(profile?.dob));
 
   useEffect(() => {
@@ -15,19 +15,7 @@ export default function BirthdayReminderCard({ profile, onSelectEmployee }) {
   }, [profile?.dob]);
 
   if (!profile?.dob || !countdown) {
-    return (
-      <div className="bg-white rounded-2xl p-5 shadow-xs border border-slate-200/80 mb-6">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-pink-50 text-pink-600 flex items-center justify-center border border-pink-100">
-            <Gift className="w-4 h-4" />
-          </div>
-          <div>
-            <h4 className="text-xs font-bold text-slate-800">Birthday Information</h4>
-            <p className="text-[11px] text-slate-400">Birthday is not set for this profile.</p>
-          </div>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   const name = profile?.name || 'Employee';
@@ -56,16 +44,6 @@ export default function BirthdayReminderCard({ profile, onSelectEmployee }) {
               </p>
             </div>
           </div>
-
-          {onSelectEmployee && (
-            <button
-              onClick={() => onSelectEmployee(profile)}
-              className="bg-white text-pink-700 hover:bg-pink-50 font-bold text-xs px-4 py-2.5 rounded-xl shadow-xs transition-all cursor-pointer flex items-center gap-1.5 shrink-0"
-            >
-              <span>View Details</span>
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          )}
         </div>
       </div>
     );
@@ -95,49 +73,11 @@ export default function BirthdayReminderCard({ profile, onSelectEmployee }) {
               </p>
             </div>
           </div>
-
-          {onSelectEmployee && (
-            <button
-              onClick={() => onSelectEmployee(profile)}
-              className="bg-white text-orange-700 hover:bg-amber-50 font-bold text-xs px-4 py-2.5 rounded-xl shadow-xs transition-all cursor-pointer flex items-center gap-1.5 shrink-0"
-            >
-              <span>View Details</span>
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          )}
         </div>
       </div>
     );
   }
 
-  // 3. Standard Upcoming Birthday Card
-  return (
-    <div className="bg-white rounded-2xl p-5 shadow-xs border border-slate-200/80 mb-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-pink-50 text-pink-600 flex items-center justify-center border border-pink-100">
-            <Gift className="w-5 h-5" />
-          </div>
-          <div>
-            <h4 className="text-xs font-bold text-slate-800">
-              Next birthday: {countdown.displayDate}
-            </h4>
-            <p className="text-[11px] text-slate-500 font-medium mt-0.5">
-              (in {countdown.daysLeft} {countdown.daysLeft === 1 ? 'day' : 'days'})
-            </p>
-          </div>
-        </div>
-
-        {onSelectEmployee && (
-          <button
-            onClick={() => onSelectEmployee(profile)}
-            className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 cursor-pointer"
-          >
-            <span>View Details</span>
-            <ChevronRight className="w-3.5 h-3.5" />
-          </button>
-        )}
-      </div>
-    </div>
-  );
+  // 3. Standard Upcoming Birthday (Hide card if more than 12 hours away / not today or eve)
+  return null;
 }

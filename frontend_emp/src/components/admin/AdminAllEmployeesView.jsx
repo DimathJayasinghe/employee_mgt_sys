@@ -411,6 +411,7 @@ export default function AdminAllEmployeesView({ employees: initialEmployees = []
           </table>
         </div>
       )}
+
     </div>
   );
 }

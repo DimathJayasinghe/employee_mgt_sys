@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { Gift, Clock, ChevronRight, User } from 'lucide-react';
+import React from 'react';
+import { Gift, Clock } from 'lucide-react';
 import { getBirthdayCountdown } from '../../utils/dateUtils';
 
-export default function UpcomingBirthdayCard({ birthdayEmployees = [], onSelectEmployee }) {
+export default function UpcomingBirthdayCard({ birthdayEmployees = [] }) {
   if (!birthdayEmployees || birthdayEmployees.length === 0) return null;
 
   // Filter employees whose birthday is either today or tomorrow (eve)
@@ -48,15 +48,6 @@ export default function UpcomingBirthdayCard({ birthdayEmployees = [], onSelectE
               </div>
             </div>
 
-            {onSelectEmployee && (
-              <button
-                onClick={() => onSelectEmployee(emp)}
-                className="bg-pink-50 hover:bg-pink-100 text-pink-700 border border-pink-200 px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1 shrink-0"
-              >
-                <span>View</span>
-                <ChevronRight className="w-3 h-3" />
-              </button>
-            )}
           </div>
         ))}
       </div>

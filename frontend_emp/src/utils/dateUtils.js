@@ -51,7 +51,7 @@ export function formatDateDot(dateStr) {
   return `${dd}.${mm}.${parsed.year}`;
 }
 
-// Format Birthday as "31 March" style
+// Format Birthday as "31 March 1995" style
 export function formatBirthdayStyle(dobStr) {
   const parsed = parseDateParts(dobStr);
   if (!parsed) return 'Birthday not set';
@@ -61,44 +61,52 @@ export function formatBirthdayStyle(dobStr) {
     'July', 'August', 'September', 'October', 'November', 'December'
   ];
   const monthName = monthNames[parsed.month - 1] || '';
-  return `${parsed.day} ${monthName}`;
+  return `${parsed.day} ${monthName} ${parsed.year}`;
 }
 
-// Calculate Tenure (Years & Months) dynamically from date_joined
+// Calculate Tenure (Years, Months & Days) dynamically from date_joined
 export function calculateTenure(joinedStr) {
   const joined = parseDateParts(joinedStr);
-  if (!joined) return { text: '-', years: 0, months: 0, shortText: '-' };
+  if (!joined) return { text: '-', years: 0, months: 0, days: 0, shortText: '-' };
 
   const now = getNowColombo();
 
-  let totalMonths = (now.year - joined.year) * 12 + (now.month - joined.month);
-  if (now.day < joined.day) {
-    totalMonths--;
-  }
-  totalMonths = Math.max(0, totalMonths);
+  let years = now.year - joined.year;
+  let months = now.month - joined.month;
+  let days = now.day - joined.day;
 
-  const years = Math.floor(totalMonths / 12);
-  const remMonths = totalMonths % 12;
-
-  let text = '';
-  if (years > 0 && remMonths > 0) {
-    text = `(${years} ${years === 1 ? 'Year' : 'Years'} ${remMonths} ${remMonths === 1 ? 'Month' : 'Months'})`;
-  } else if (years > 0) {
-    text = `(${years} ${years === 1 ? 'Year' : 'Years'})`;
-  } else {
-    text = `(${remMonths} ${remMonths === 1 ? 'Month' : 'Months'})`;
+  if (days < 0) {
+    months--;
+    const prevMonth = now.month === 1 ? 12 : now.month - 1;
+    const prevYear = now.month === 1 ? now.year - 1 : now.year;
+    const daysInPrevMonth = new Date(prevYear, prevMonth, 0).getDate();
+    days += daysInPrevMonth;
   }
 
-  let shortText = '';
-  if (years > 0 && remMonths > 0) {
-    shortText = `${years} yrs ${remMonths} mos`;
-  } else if (years > 0) {
-    shortText = `${years} ${years === 1 ? 'Year' : 'Years'}`;
-  } else {
-    shortText = `${remMonths} ${remMonths === 1 ? 'Month' : 'Months'}`;
+  if (months < 0) {
+    years--;
+    months += 12;
   }
 
-  return { text, years, months: remMonths, totalMonths, shortText };
+  if (years < 0) {
+    return { text: '-', years: 0, months: 0, days: 0, shortText: '-' };
+  }
+
+  const parts = [];
+  if (years > 0) parts.push(`${years} ${years === 1 ? 'Year' : 'Years'}`);
+  if (months > 0) parts.push(`${months} ${months === 1 ? 'Month' : 'Months'}`);
+  if (days > 0 || parts.length === 0) parts.push(`${days} ${days === 1 ? 'Day' : 'Days'}`);
+
+  const text = `(${parts.join(' ')})`;
+
+  const shortParts = [];
+  if (years > 0) shortParts.push(`${years} yrs`);
+  if (months > 0) shortParts.push(`${months} mos`);
+  if (days > 0 || shortParts.length === 0) shortParts.push(`${days} days`);
+
+  const shortText = shortParts.join(' ');
+
+  return { text, years, months, days, shortText };
 }
 
 // Birthday Countdown in Asia/Colombo time
