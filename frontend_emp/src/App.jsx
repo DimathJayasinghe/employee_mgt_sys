@@ -33,6 +33,7 @@ import AdminAddEmployeeView from './components/admin/AdminAddEmployeeView';
 import AdminWorkActivityView from './components/admin/AdminWorkActivityView';
 import AdminClientAnalyticsView from './components/admin/AdminClientAnalyticsView';
 import LeaveCalendarView from './components/admin/LeaveCalendarView';
+import AdminProjectsView from './components/admin/AdminProjectsView';
 
 export default function App() {
   // Navigation View: 'login' | 'admin' | 'employee'
@@ -292,6 +293,7 @@ export default function App() {
     'admin-dashboard': 'Dashboard',
     'all-employees': 'All Employees',
     'add-employee': 'Add New Employee',
+    'projects': 'Projects & Assignments',
     'work-activity': 'Work Activity',
     'client-analytics': 'Client Analytics',
     'admin-leave-requests': 'Leave Requests',
@@ -389,6 +391,8 @@ export default function App() {
             {activeTab === 'all-employees' && <AdminAllEmployeesView employees={allEmployees} onSelectEmployee={handleSelectEmployee} />}
 
             {activeTab === 'add-employee' && <AdminAddEmployeeView />}
+
+            {activeTab === 'projects' && <AdminProjectsView onSelectEmployee={handleSelectEmployee} />}
 
             {activeTab === 'admin-leave-requests' && (
               <div className="max-w-7xl mx-auto space-y-6">

@@ -12,6 +12,7 @@ const adminRoutes = require('./routes/adminRoutes');
 const authRoutes = require('./routes/authRoutes');
 const zohoRoutes = require('./routes/zohoRoutes');
 const profileRoutes = require('./routes/profileRoutes');
+const projectRoutes = require('./routes/projectRoutes');
 
 const securityHeaders = require('./middleware/securityHeaders');
 
@@ -52,6 +53,7 @@ app.use('/api', dashboardRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api', zohoRoutes);
 app.use('/api', profileRoutes);
+app.use('/api/projects', projectRoutes);
 
 // API 404 Catch-all
 app.use('/api', notFoundHandler);

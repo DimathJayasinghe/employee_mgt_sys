@@ -2177,7 +2177,15 @@ const profileService = {
     }
 
     delete users[0].password;
-    return users[0];
+    const profile = users[0];
+    try {
+      const projectService = require('./projectService');
+      const assignedProjects = await projectService.getUserProjects(profile.id);
+      profile.assigned_projects = assignedProjects || [];
+    } catch {
+      profile.assigned_projects = [];
+    }
+    return profile;
   },
 
   async updateMyProfile(userId, updates = {}, requestingUser) {

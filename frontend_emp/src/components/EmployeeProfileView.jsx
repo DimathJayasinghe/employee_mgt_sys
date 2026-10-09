@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import API from '../api';
 import ProfileHero from './profile/ProfileHero';
 import StatCard from './profile/StatCard';
-import { PersonalInfoCard, EmploymentInfoCard, ContactInfoCard } from './profile/InfoCard';
+import { PersonalInfoCard, EmploymentInfoCard, ContactInfoCard, AssignedProjectsCard } from './profile/InfoCard';
 import BirthdayReminderCard from './profile/BirthdayReminderCard';
 import UpcomingBirthdayCard from './profile/UpcomingBirthdayCard';
 import QuickActions from './profile/QuickActions';
@@ -10,7 +10,7 @@ import RecentActivity from './profile/RecentActivity';
 import DocumentsTab from './profile/DocumentsTab';
 import PhotoUploader from './profile/PhotoUploader';
 import EditProfileModal from './EditProfileModal';
-import { Layers, User, Briefcase, Phone, FileText, AlertCircle, RefreshCw } from 'lucide-react';
+import { Layers, User, Briefcase, Phone, FileText, AlertCircle, RefreshCw, FolderKanban } from 'lucide-react';
 
 export default function EmployeeProfileView({ onBack, user, onSelectEmployee, onProfileUpdated: onParentProfileUpdated }) {
   const [profile, setProfile] = useState(user || null);
@@ -133,6 +133,7 @@ export default function EmployeeProfileView({ onBack, user, onSelectEmployee, on
           { id: 'overview', label: 'Overview', icon: Layers },
           { id: 'personal', label: 'Personal Details', icon: User },
           { id: 'employment', label: 'Employment Details', icon: Briefcase },
+          { id: 'projects', label: 'Assigned Projects', icon: FolderKanban },
           { id: 'contact', label: 'Contact Details', icon: Phone },
           { id: 'documents', label: 'Documents', icon: FileText }
         ].map(tab => {
@@ -175,8 +176,9 @@ export default function EmployeeProfileView({ onBack, user, onSelectEmployee, on
 
           {/* Overview Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-            {/* Left Column: Personal Info & Activity Log */}
+            {/* Left Column: Assigned Projects, Personal Info & Activity Log */}
             <div className="lg:col-span-8 space-y-6">
+              <AssignedProjectsCard profile={profile} />
               <PersonalInfoCard
                 profile={profile}
                 onOpenEditModal={handleOpenEditModal}
@@ -210,6 +212,11 @@ export default function EmployeeProfileView({ onBack, user, onSelectEmployee, on
           profile={profile}
           onOpenEditModal={handleOpenEditModal}
         />
+      )}
+
+      {/* TAB CONTENT: ASSIGNED PROJECTS */}
+      {activeSubTab === 'projects' && (
+        <AssignedProjectsCard profile={profile} />
       )}
 
       {/* TAB CONTENT 4: CONTACT DETAILS */}

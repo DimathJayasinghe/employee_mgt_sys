@@ -177,3 +177,35 @@ CREATE TABLE IF NOT EXISTS public.email_events (
 );
 
 CREATE INDEX IF NOT EXISTS idx_email_events_status_next ON public.email_events(status, next_attempt_at);
+
+-- 10. PROJECTS TABLE
+CREATE TABLE IF NOT EXISTS public.projects (
+    id BIGSERIAL PRIMARY KEY,
+    name TEXT NOT NULL,
+    client_name TEXT DEFAULT 'Internal',
+    description TEXT,
+    status TEXT NOT NULL DEFAULT 'Planning', -- 'Planning', 'In Progress', 'On Hold', 'Completed'
+    progress INTEGER NOT NULL DEFAULT 0 CHECK (progress >= 0 AND progress <= 100),
+    start_date DATE DEFAULT CURRENT_DATE,
+    end_date DATE,
+    budget TEXT,
+    priority TEXT DEFAULT 'Medium', -- 'Low', 'Medium', 'High', 'Urgent'
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_projects_status ON public.projects(status);
+
+-- 11. PROJECT MEMBERS TABLE (Supports multiple projects per employee & PM promotion)
+CREATE TABLE IF NOT EXISTS public.project_members (
+    id BIGSERIAL PRIMARY KEY,
+    project_id BIGINT REFERENCES public.projects(id) ON DELETE CASCADE,
+    user_id BIGINT REFERENCES public.users(id) ON DELETE CASCADE,
+    role TEXT NOT NULL DEFAULT 'Team Member', -- 'Project Manager', 'Team Member'
+    assigned_at TIMESTAMPTZ DEFAULT NOW(),
+    CONSTRAINT uq_project_member UNIQUE (project_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_project_members_project ON public.project_members(project_id);
+CREATE INDEX IF NOT EXISTS idx_project_members_user ON public.project_members(user_id);
+

@@ -224,3 +224,91 @@ export function ContactInfoCard({ profile, onOpenEditModal }) {
     </div>
   );
 }
+
+export function AssignedProjectsCard({ profile }) {
+  const projects = profile?.assigned_projects || [];
+
+  return (
+    <div className="bg-white rounded-2xl p-6 shadow-xs border border-slate-200/80 mb-6">
+      <div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-100">
+        <div className="flex items-center gap-2">
+          <Briefcase className="w-4 h-4 text-[#022851]" />
+          <h3 className="text-base font-bold text-slate-900">Assigned Projects</h3>
+          <span className="bg-blue-100 text-[#022851] text-[11px] font-extrabold px-2 py-0.5 rounded-full">
+            {projects.length}
+          </span>
+        </div>
+        <span className="text-[11px] text-slate-400 font-medium">Active project portfolio</span>
+      </div>
+
+      {projects.length === 0 ? (
+        <div className="text-center py-6 bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
+          <p className="text-xs text-slate-500 font-medium">No projects currently assigned to this employee.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {projects.map(proj => {
+            const isPM = proj.role === 'Project Manager' || proj.is_pm;
+            const statusColor = 
+              proj.status === 'Completed' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+              proj.status === 'In Progress' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+              proj.status === 'On Hold' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+              'bg-slate-100 text-slate-700 border-slate-200';
+
+            return (
+              <div key={proj.id} className="p-4 rounded-xl border border-slate-200 bg-slate-50/40 hover:bg-white hover:shadow-xs transition-all flex flex-col justify-between">
+                <div>
+                  <div className="flex items-start justify-between gap-2 mb-1.5">
+                    <h4 className="text-sm font-bold text-slate-900 leading-snug">{proj.name}</h4>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${statusColor} shrink-0`}>
+                      {proj.status}
+                    </span>
+                  </div>
+
+                  <p className="text-[11px] font-medium text-slate-500 mb-2">
+                    Client: <strong className="text-slate-700 font-semibold">{proj.client_name || 'Internal'}</strong>
+                  </p>
+
+                  {proj.description && (
+                    <p className="text-xs text-slate-600 line-clamp-2 mb-3 leading-relaxed">
+                      {proj.description}
+                    </p>
+                  )}
+                </div>
+
+                <div className="pt-3 border-t border-slate-150">
+                  <div className="flex items-center justify-between text-xs mb-2">
+                    <span className="text-slate-400 text-[11px]">Role on Project</span>
+                    {isPM ? (
+                      <span className="inline-flex items-center gap-1 bg-amber-500 text-slate-950 font-black text-[10px] px-2.5 py-0.5 rounded-md shadow-2xs tracking-wide">
+                        ★ Project Manager
+                      </span>
+                    ) : (
+                      <span className="bg-slate-100 text-slate-700 font-bold text-[10px] px-2 py-0.5 rounded-md">
+                        {proj.role || 'Team Member'}
+                      </span>
+                    )}
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between items-center text-[10px] text-slate-400 font-semibold mb-1">
+                      <span>Progress</span>
+                      <span className="text-slate-800 font-bold">{proj.progress || 0}%</span>
+                    </div>
+                    <div className="w-full bg-slate-200 rounded-full h-1.5 overflow-hidden">
+                      <div 
+                        className="bg-[#022851] h-1.5 rounded-full transition-all duration-300" 
+                        style={{ width: `${Math.min(100, Math.max(0, proj.progress || 0))}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
