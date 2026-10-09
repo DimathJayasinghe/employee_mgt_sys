@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, User, Phone, Mail, MapPin, AlertCircle, Save, Lock, CheckCircle2, Calendar, CreditCard, Briefcase, Building, GraduationCap, Shirt } from 'lucide-react';
+import { X, User, Phone, Mail, MapPin, AlertCircle, Save, Lock, CheckCircle2, Calendar, CreditCard, Briefcase, Building, GraduationCap, Shirt, Eye, EyeOff } from 'lucide-react';
 import API from '../api';
 
 export default function EditProfileModal({ isOpen, onClose, profile, onProfileUpdated }) {
@@ -19,18 +19,27 @@ export default function EditProfileModal({ isOpen, onClose, profile, onProfileUp
     card_designation: '',
     joined_date: ''
   });
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [showPasswordSection, setShowPasswordSection] = useState(false);
+  const [showPasswords, setShowPasswords] = useState(false);
   const [errors, setErrors] = useState({});
   const [isSaving, setIsSaving] = useState(false);
   const [serverError, setServerError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
-  const isAdmin = (() => {
+  const currentUser = (() => {
     try {
       const saved = localStorage.getItem('emp_mgt_user');
-      if (saved) return JSON.parse(saved).role === 'Admin';
+      return saved ? JSON.parse(saved) : null;
     } catch {}
-    return profile?.role === 'Admin';
+    return null;
   })();
+
+  const isAdmin = currentUser?.role === 'Admin' || profile?.role === 'Admin';
 
   useEffect(() => {
     if (profile) {
@@ -53,6 +62,13 @@ export default function EditProfileModal({ isOpen, onClose, profile, onProfileUp
       setErrors({});
       setServerError('');
       setSuccessMsg('');
+      setPasswordData({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+      });
+      setShowPasswordSection(false);
+      setShowPasswords(false);
     }
   }, [profile, isOpen]);
 
@@ -91,6 +107,22 @@ export default function EditProfileModal({ isOpen, onClose, profile, onProfileUp
     if (formData.address && formData.address.trim() !== '') {
       if (formData.address.length > 300) {
         errs.address = 'Address must not exceed 300 characters';
+      }
+    }
+
+    // Password validation if section is active and filled
+    if (showPasswordSection && (passwordData.newPassword || passwordData.currentPassword || passwordData.confirmPassword)) {
+      const isSelf = !isAdmin || (profile && currentUser && String(profile.id) === String(currentUser.id));
+      if (isSelf && !passwordData.currentPassword) {
+        errs.currentPassword = 'Current password is required to change password';
+      }
+      if (!passwordData.newPassword) {
+        errs.newPassword = 'New password is required';
+      } else if (passwordData.newPassword.length < 6) {
+        errs.newPassword = 'Password must be at least 6 characters long';
+      }
+      if (passwordData.newPassword !== passwordData.confirmPassword) {
+        errs.confirmPassword = 'New passwords do not match';
       }
     }
 
@@ -135,14 +167,24 @@ export default function EditProfileModal({ isOpen, onClose, profile, onProfileUp
       };
 
       const res = await API.patch('/profile/me', payload);
-      setSuccessMsg('Profile details saved successfully!');
+
+      // If password update requested, submit to change-password endpoint
+      if (showPasswordSection && passwordData.newPassword) {
+        await API.post('/profile/change-password', {
+          current_password: passwordData.currentPassword,
+          new_password: passwordData.newPassword,
+          target_user_id: profile?.id
+        });
+      }
+
+      setSuccessMsg(showPasswordSection && passwordData.newPassword ? 'Profile details and password saved successfully!' : 'Profile details saved successfully!');
       if (onProfileUpdated) {
         onProfileUpdated(res.data);
       }
       setTimeout(() => {
         setIsSaving(false);
         onClose();
-      }, 800);
+      }, 900);
     } catch (err) {
       console.error('Failed to update profile:', err);
       const errMsg = err.response?.data?.error || err.message || 'Failed to update profile';
@@ -468,6 +510,123 @@ export default function EditProfileModal({ isOpen, onClose, profile, onProfileUp
                 />
               </div>
             </div>
+          </div>
+
+          {/* SECTION 4: SECURITY & PASSWORD */}
+          <div className="space-y-3 pt-2">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-1">
+              <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                <Lock className="w-3.5 h-3.5 text-blue-600" />
+                <span>Security & Password</span>
+              </h4>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowPasswordSection(!showPasswordSection);
+                  if (showPasswordSection) {
+                    setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+                    setErrors(prev => ({ ...prev, currentPassword: null, newPassword: null, confirmPassword: null }));
+                  }
+                }}
+                className="text-[11px] font-bold text-blue-600 hover:text-blue-700 transition-colors cursor-pointer"
+              >
+                {showPasswordSection ? 'Cancel Password Change' : '+ Change Password'}
+              </button>
+            </div>
+
+            {showPasswordSection && (
+              <div className="bg-slate-50/70 p-3.5 rounded-xl border border-slate-200/80 space-y-3 animate-in fade-in duration-150">
+                {/* Current Password (required if editing self) */}
+                {(!isAdmin || (profile && currentUser && String(profile.id) === String(currentUser.id))) && (
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1 flex items-center justify-between">
+                      <span>Current Password</span>
+                      <span className="text-rose-500 font-bold">*</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showPasswords ? "text" : "password"}
+                        name="currentPassword"
+                        value={passwordData.currentPassword}
+                        onChange={(e) => {
+                          setPasswordData(p => ({ ...p, currentPassword: e.target.value }));
+                          if (errors.currentPassword) setErrors(p => ({ ...p, currentPassword: null }));
+                        }}
+                        placeholder="Enter current password"
+                        className={`w-full border rounded-xl px-3 py-2 pr-9 text-xs text-slate-800 bg-white focus:outline-none focus:ring-2 ${
+                          errors.currentPassword ? 'border-rose-300 focus:ring-rose-500/20' : 'border-slate-200 focus:ring-blue-500/20 focus:border-blue-500'
+                        }`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPasswords(!showPasswords)}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                      >
+                        {showPasswords ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                    {errors.currentPassword && <p className="text-[11px] text-rose-600 font-medium mt-1">{errors.currentPassword}</p>}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* New Password */}
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1 flex items-center justify-between">
+                      <span>New Password</span>
+                      <span className="text-rose-500 font-bold">*</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showPasswords ? "text" : "password"}
+                        name="newPassword"
+                        value={passwordData.newPassword}
+                        onChange={(e) => {
+                          setPasswordData(p => ({ ...p, newPassword: e.target.value }));
+                          if (errors.newPassword) setErrors(p => ({ ...p, newPassword: null }));
+                        }}
+                        placeholder="Min. 6 characters"
+                        className={`w-full border rounded-xl px-3 py-2 pr-9 text-xs text-slate-800 bg-white focus:outline-none focus:ring-2 ${
+                          errors.newPassword ? 'border-rose-300 focus:ring-rose-500/20' : 'border-slate-200 focus:ring-blue-500/20 focus:border-blue-500'
+                        }`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPasswords(!showPasswords)}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                      >
+                        {showPasswords ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                    {errors.newPassword && <p className="text-[11px] text-rose-600 font-medium mt-1">{errors.newPassword}</p>}
+                  </div>
+
+                  {/* Confirm New Password */}
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1 flex items-center justify-between">
+                      <span>Confirm New Password</span>
+                      <span className="text-rose-500 font-bold">*</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showPasswords ? "text" : "password"}
+                        name="confirmPassword"
+                        value={passwordData.confirmPassword}
+                        onChange={(e) => {
+                          setPasswordData(p => ({ ...p, confirmPassword: e.target.value }));
+                          if (errors.confirmPassword) setErrors(p => ({ ...p, confirmPassword: null }));
+                        }}
+                        placeholder="Re-enter new password"
+                        className={`w-full border rounded-xl px-3 py-2 pr-9 text-xs text-slate-800 bg-white focus:outline-none focus:ring-2 ${
+                          errors.confirmPassword ? 'border-rose-300 focus:ring-rose-500/20' : 'border-slate-200 focus:ring-blue-500/20 focus:border-blue-500'
+                        }`}
+                      />
+                    </div>
+                    {errors.confirmPassword && <p className="text-[11px] text-rose-600 font-medium mt-1">{errors.confirmPassword}</p>}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Footer Actions */}

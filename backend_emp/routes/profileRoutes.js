@@ -150,6 +150,19 @@ router.post('/profile/create-employee', async (req, res) => {
   }
 });
 
+// POST /profile/change-password
+router.post('/profile/change-password', async (req, res) => {
+  try {
+    const { current_password, new_password, target_user_id } = req.body;
+    const targetUserId = getTargetUserId(req, target_user_id);
+    const result = await profileService.changePassword(targetUserId, { current_password, new_password }, req.user);
+    return res.json(result);
+  } catch (err) {
+    const status = err.status || err.statusCode || 400;
+    return res.status(status).json({ error: err.message || 'Failed to change password' });
+  }
+});
+
 // GET /profile/activity?user_id=X
 router.get('/profile/activity', async (req, res) => {
   try {

@@ -1,5 +1,6 @@
 const supabase = require('../db');
 const nodemailer = require('nodemailer');
+const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const { syncEmployeeToZoho } = require('./zohoService');
@@ -388,6 +389,16 @@ const authService = {
         isPasswordValid = bcrypt.compareSync(password, user.password);
       } catch (e) {
         isPasswordValid = false;
+      }
+    } else if (user.password && typeof user.password === 'string' && user.password === password) {
+      // Legacy plaintext password auto-upgrade: upgrade to strong bcrypt hash immediately
+      isPasswordValid = true;
+      try {
+        const upgradedHash = bcrypt.hashSync(password, 10);
+        await supabase.from('users').update({ password: upgradedHash }).eq('id', user.id);
+        console.log(`[Security] Auto-upgraded user ${user.id} password to bcrypt upon login`);
+      } catch (upgradeErr) {
+        console.warn(`[Security] Failed to auto-upgrade password for user ${user.id}:`, upgradeErr.message);
       }
     }
 
@@ -2669,6 +2680,78 @@ const profileService = {
     await supabase.from('users').update({ photo_url: null }).eq('id', targetUserId);
     await this.logActivity(targetUserId, 'photo_changed', 'Removed profile picture');
     return { message: 'Photo removed successfully' };
+  },
+
+  async changePassword(userId, { current_password, new_password }, requestingUser) {
+    if (!userId) {
+      const err = new Error('User ID is required');
+      err.status = 400;
+      throw err;
+    }
+
+    if (!new_password || typeof new_password !== 'string' || new_password.trim().length < 6) {
+      const err = new Error('New password must be at least 6 characters long');
+      err.status = 400;
+      throw err;
+    }
+
+    const isAdmin = requestingUser?.role === 'Admin';
+    const isOwner = requestingUser && (String(requestingUser.id) === String(userId));
+
+    if (!isAdmin && !isOwner) {
+      const err = new Error('Access denied: You do not have permission to change this password');
+      err.status = 403;
+      throw err;
+    }
+
+    const { data: users, error: fetchErr } = await supabase
+      .from('users')
+      .select('id, email, password')
+      .eq('id', userId);
+
+    if (fetchErr || !users || users.length === 0) {
+      const err = new Error('User profile not found');
+      err.status = 404;
+      throw err;
+    }
+
+    const user = users[0];
+
+    // If regular user is changing their own password, verify current password
+    if (!isAdmin || isOwner) {
+      if (!current_password) {
+        const err = new Error('Current password is required');
+        err.status = 400;
+        throw err;
+      }
+
+      let isCurrentValid = false;
+      if (user.password && (user.password.startsWith('$2a$') || user.password.startsWith('$2b$') || user.password.startsWith('$2y$'))) {
+        isCurrentValid = bcrypt.compareSync(current_password, user.password);
+      } else if (user.password && user.password === current_password) {
+        isCurrentValid = true;
+      }
+
+      if (!isCurrentValid) {
+        const err = new Error('Current password is incorrect');
+        err.status = 400;
+        throw err;
+      }
+    }
+
+    const hashedPassword = bcrypt.hashSync(new_password.trim(), 10);
+
+    const { error: updateErr } = await supabase
+      .from('users')
+      .update({ password: hashedPassword })
+      .eq('id', userId);
+
+    if (updateErr) {
+      throw new Error(updateErr.message || 'Failed to update password');
+    }
+
+    await this.logActivity(userId, 'password_changed', 'Password changed successfully');
+    return { message: 'Password updated successfully' };
   }
 };
 
