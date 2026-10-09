@@ -111,7 +111,9 @@ export default function App() {
     if (currentView === 'admin') {
       fetchAdminSummary();
     } else if (currentView === 'employee' && currentUser?.id) {
-      fetchEmployeeSummary(currentUser.id);
+      if (activeTab === 'dashboard') {
+        fetchEmployeeSummary(currentUser.id);
+      }
     }
   }, [currentView, activeTab]);
 
@@ -472,6 +474,19 @@ export default function App() {
               }} 
               user={selectedEmployee || currentUser || user}
               onSelectEmployee={handleSelectEmployee}
+              onProfileUpdated={(updated) => {
+                if (updated && (String(updated.id) === String(currentUser?.id) || updated.email === currentUser?.email)) {
+                  setUser(prev => ({ ...prev, ...updated }));
+                  setCurrentUser(prev => ({ ...prev, ...updated }));
+                  try {
+                    const saved = localStorage.getItem('emp_mgt_user');
+                    if (saved) {
+                      const parsed = JSON.parse(saved);
+                      localStorage.setItem('emp_mgt_user', JSON.stringify({ ...parsed, ...updated }));
+                    }
+                  } catch (e) {}
+                }
+              }}
             />
           )}
 

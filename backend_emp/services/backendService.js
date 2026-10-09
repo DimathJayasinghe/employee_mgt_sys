@@ -306,6 +306,40 @@ async function sendSystemEmail({ to, cc, subject, html, attachments }) {
   return { success: false };
 }
 
+// Helper: Resilient Supabase Query Executor with retry for transient network hiccups
+async function executeWithRetry(queryFn, maxRetries = 2, delayMs = 300) {
+  let lastErr = null;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const res = await queryFn();
+      if (res && res.error) {
+        const errMsg = String(res.error.message || '');
+        const isNetwork = errMsg.includes('fetch failed') || errMsg.includes('network') || errMsg.includes('timeout') || errMsg.includes('Failed to fetch');
+        if (isNetwork && attempt < maxRetries) {
+          await new Promise(r => setTimeout(r, delayMs * (attempt + 1)));
+          continue;
+        }
+      }
+      return res;
+    } catch (err) {
+      lastErr = err;
+      const errMsg = String(err.message || '');
+      const isFetchErr = errMsg.includes('fetch failed') || errMsg.includes('network') || errMsg.includes('ETIMEDOUT') || errMsg.includes('ECONNRESET') || errMsg.includes('Failed to fetch');
+      if (isFetchErr && attempt < maxRetries) {
+        await new Promise(r => setTimeout(r, delayMs * (attempt + 1)));
+        continue;
+      }
+      throw err;
+    }
+  }
+  if (lastErr) throw lastErr;
+}
+
+let upcomingBirthdaysCache = {
+  data: null,
+  timestamp: 0
+};
+
 // =============================================================
 // AUTH SERVICE
 // =============================================================
@@ -506,34 +540,101 @@ const dashboardService = {
     if (!userId) throw new Error('user_id is required');
     const todayStr = getTodayStr();
 
-    // 1. Fetch User Profile
-    const { data: users, error: uErr } = await supabase
-      .from('users')
-      .select('id, name, department, email, initials, status, role, emp_code, designation, card_designation, employment_type, dob, gender, nic, address, phone, personal_email, date_joined, photo_url, skills')
-      .eq('id', userId);
+    // Fetch all required data in parallel with automatic retry resilience
+    const [
+      userRes,
+      entriesRes,
+      approvedLeavesRes,
+      balancesRes,
+      activeLeavesTodayRes,
+      recentLeavesRes,
+      allUsersRes,
+      todayWorksRes,
+      activeLeavesRes
+    ] = await Promise.all([
+      // 1. Fetch User Profile
+      executeWithRetry(() =>
+        supabase
+          .from('users')
+          .select('id, name, department, email, initials, status, role, emp_code, designation, card_designation, employment_type, dob, gender, nic, address, phone, personal_email, date_joined, photo_url, skills')
+          .eq('id', userId)
+      ),
+      // 2. Fetch Today's Work Entry for user
+      executeWithRetry(() =>
+        supabase
+          .from('daily_work_entries')
+          .select('work_description')
+          .eq('user_id', userId)
+          .eq('entry_date', todayStr)
+      ),
+      // 3. Fetch Approved User Leaves
+      executeWithRetry(() =>
+        supabase
+          .from('leave_requests')
+          .select('leave_type, days_count')
+          .eq('user_id', userId)
+          .eq('status', 'Approved')
+      ),
+      // 4. Fetch Leave Balances for user
+      executeWithRetry(() =>
+        supabase
+          .from('leave_balances')
+          .select('total_days, used_days')
+          .eq('user_id', userId)
+      ),
+      // 5. Fetch Active Approved Leave Today for user
+      executeWithRetry(() =>
+        supabase
+          .from('leave_requests')
+          .select('*')
+          .eq('user_id', userId)
+          .eq('status', 'Approved')
+          .lte('start_date', todayStr)
+          .gte('end_date', todayStr)
+      ),
+      // 6. Fetch Recent Leave Requests (Last 5)
+      executeWithRetry(() =>
+        supabase
+          .from('leave_requests')
+          .select('*')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false })
+          .limit(5)
+      ),
+      // 7. Team Workforce Users
+      executeWithRetry(() =>
+        supabase
+          .from('users')
+          .select('id, name, initials, department, status, role, photo_url')
+          .order('name', { ascending: true })
+      ),
+      // 8. Team Today's Work Entries
+      executeWithRetry(() =>
+        supabase
+          .from('daily_work_entries')
+          .select('user_id, work_description')
+          .eq('entry_date', todayStr)
+      ),
+      // 9. Team Active Leaves Today
+      executeWithRetry(() =>
+        supabase
+          .from('leave_requests')
+          .select('*')
+          .eq('status', 'Approved')
+          .lte('start_date', todayStr)
+          .gte('end_date', todayStr)
+      )
+    ]);
 
-    if (uErr || !users || users.length === 0) {
-      throw new Error(uErr?.message || 'User not found');
+    if (userRes.error || !userRes.data || userRes.data.length === 0) {
+      throw new Error(userRes.error?.message || 'User not found');
     }
-    const user = users[0];
+    const user = userRes.data[0];
 
-    // 2. Fetch Today's Work Entry
-    const { data: entries } = await supabase
-      .from('daily_work_entries')
-      .select('work_description')
-      .eq('user_id', userId)
-      .eq('entry_date', todayStr);
+    const entries = entriesRes.data || [];
+    const todayEntry = entries.length > 0 ? entries[0].work_description : '';
 
-    const todayEntry = entries && entries.length > 0 ? entries[0].work_description : '';
-
-    // 3. Fetch Leave Balances & Calculate Accurate Used Days for Casual (7) and Annual (14)
-    const { data: allApprovedUserLeaves } = await supabase
-      .from('leave_requests')
-      .select('leave_type, days_count')
-      .eq('user_id', userId)
-      .eq('status', 'Approved');
-
-    const approvedList = allApprovedUserLeaves || [];
+    const approvedList = approvedLeavesRes.data || [];
     
     // Casual Leave: 7 days allocated
     const casualTotal = 7;
@@ -555,11 +656,7 @@ const dashboardService = {
     const totalAvailable = casualAvailable + annualAvailable;
 
     // Auto-heal leave_balances table if desynchronized
-    const { data: balances } = await supabase
-      .from('leave_balances')
-      .select('total_days, used_days')
-      .eq('user_id', userId);
-
+    const balances = balancesRes.data || [];
     if (!balances || balances.length === 0) {
       supabase.from('leave_balances').insert([{ user_id: userId, total_days: totalDays, used_days: totalUsed }]).then(() => {});
     } else if (parseFloat(balances[0].used_days || 0) !== totalUsed || parseFloat(balances[0].total_days || 0) !== totalDays) {
@@ -567,14 +664,7 @@ const dashboardService = {
     }
 
     // 4. Fetch Active Approved Leave Today
-    const { data: activeLeavesToday } = await supabase
-      .from('leave_requests')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('status', 'Approved')
-      .lte('start_date', todayStr)
-      .gte('end_date', todayStr);
-
+    const activeLeavesToday = activeLeavesTodayRes.data || [];
     let calculatedStatus = 'Working';
     let hdDetails = null;
     let slDetails = null;
@@ -599,14 +689,8 @@ const dashboardService = {
     }
 
     // 5. Fetch Recent Leave Requests (Last 5)
-    const { data: recentLeaves } = await supabase
-      .from('leave_requests')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-      .limit(5);
-
-    const formattedRecentLeaves = (recentLeaves || []).map(l => {
+    const recentLeaves = recentLeavesRes.data || [];
+    const formattedRecentLeaves = recentLeaves.map(l => {
       const isSpecial = l.leave_type === 'Special Leave';
       const isShortLeave = l.leave_type === 'Short Leave';
       const isPowerCut = l.leave_type === 'Power Cut';
@@ -640,30 +724,16 @@ const dashboardService = {
     });
 
     // 6. Fetch Team Workforce Status Today (Working & On Leave)
-    const { data: allUsers } = await supabase
-      .from('users')
-      .select('id, name, initials, department, status, role, photo_url')
-      .order('name', { ascending: true });
-
-    const { data: todayWorks } = await supabase
-      .from('daily_work_entries')
-      .select('user_id, work_description')
-      .eq('entry_date', todayStr);
-
+    const allUsers = allUsersRes.data || [];
+    const todayWorks = todayWorksRes.data || [];
     const workMap = {};
-    (todayWorks || []).forEach(w => {
+    todayWorks.forEach(w => {
       workMap[w.user_id] = w.work_description;
     });
 
-    const { data: activeLeaves } = await supabase
-      .from('leave_requests')
-      .select('*')
-      .eq('status', 'Approved')
-      .lte('start_date', todayStr)
-      .gte('end_date', todayStr);
-
+    const activeLeaves = activeLeavesRes.data || [];
     const leaveMap = {};
-    (activeLeaves || []).forEach(l => {
+    activeLeaves.forEach(l => {
       leaveMap[l.user_id] = l;
     });
 
@@ -1973,20 +2043,26 @@ const profileService = {
     const targetProfile = await this.getMyProfile(userId);
     const resolvedId = targetProfile.id;
 
-    // Strict Permission Rule: Employees profiles are View Only for Admins / other users.
-    // Only the profile owner can update their own profile data.
+    // Strict Permission Rule: Profile owner or Admin can update profile data
     const isOwner = requestingUser && (
       String(requestingUser.id) === String(resolvedId) ||
-      (requestingUser.email && targetProfile.email && requestingUser.email.toLowerCase() === targetProfile.email.toLowerCase())
+      (requestingUser.email && targetProfile.email && requestingUser.email.toLowerCase() === targetProfile.email.toLowerCase()) ||
+      requestingUser.role === 'Admin'
     );
 
     if (requestingUser && !isOwner) {
-      const err = new Error('Access denied: Employee profiles are View Only. Only the profile owner can edit their own profile.');
+      const err = new Error('Access denied: Employee profiles are View Only. Only the profile owner or an Admin can edit this profile.');
       err.status = 403;
       throw err;
     }
 
     const payload = {};
+
+    // Gender
+    if (updates.gender !== undefined) {
+      const raw = typeof updates.gender === 'string' ? updates.gender.trim() : updates.gender;
+      payload.gender = raw || null;
+    }
 
     // Phone
     if (updates.phone !== undefined) {
@@ -2130,6 +2206,8 @@ const profileService = {
         throw updateError;
       }
       await this.logActivity(resolvedId, 'profile_updated', 'Updated profile information (DOB/contact/personal details)');
+      // Invalidate upcoming birthdays cache so changes reflect immediately
+      upcomingBirthdaysCache = { data: null, timestamp: 0 };
     }
 
     const updatedProfile = await this.getMyProfile(resolvedId);
@@ -2232,13 +2310,33 @@ const profileService = {
   },
 
   async getUpcomingBirthdays() {
-    const { data: users, error } = await supabase
-      .from('users')
-      .select('id, name, initials, dob, photo_url, department, designation')
-      .not('dob', 'is', null);
+    try {
+      if (upcomingBirthdaysCache.data && (Date.now() - upcomingBirthdaysCache.timestamp < 60000)) {
+        return upcomingBirthdaysCache.data;
+      }
 
-    if (error) throw error;
-    return users || [];
+      const { data: users, error } = await executeWithRetry(() =>
+        supabase
+          .from('users')
+          .select('id, name, initials, dob, photo_url, department, designation')
+          .not('dob', 'is', null)
+      );
+
+      if (error) {
+        console.warn('Supabase warning in getUpcomingBirthdays:', error.message);
+        return upcomingBirthdaysCache.data || [];
+      }
+
+      upcomingBirthdaysCache = {
+        data: users || [],
+        timestamp: Date.now()
+      };
+
+      return users || [];
+    } catch (err) {
+      console.warn('Exception in getUpcomingBirthdays:', err.message);
+      return upcomingBirthdaysCache.data || [];
+    }
   },
 
   async getAdmins() {

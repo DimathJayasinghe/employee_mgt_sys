@@ -99,9 +99,10 @@ router.patch(['/profile/me', '/profile', '/me'], async (req, res) => {
 router.get('/profile/upcoming-birthdays', async (req, res) => {
   try {
     const list = await profileService.getUpcomingBirthdays();
-    return res.json(list);
+    return res.json(list || []);
   } catch (err) {
-    return res.status(500).json({ error: err.message || 'Failed to fetch upcoming birthdays' });
+    console.warn('Upcoming birthdays fetch warning:', err.message);
+    return res.json([]);
   }
 });
 

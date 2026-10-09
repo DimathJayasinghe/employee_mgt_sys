@@ -12,7 +12,7 @@ import PhotoUploader from './profile/PhotoUploader';
 import EditProfileModal from './EditProfileModal';
 import { Layers, User, Briefcase, Phone, FileText, AlertCircle, RefreshCw } from 'lucide-react';
 
-export default function EmployeeProfileView({ onBack, user, onSelectEmployee }) {
+export default function EmployeeProfileView({ onBack, user, onSelectEmployee, onProfileUpdated: onParentProfileUpdated }) {
   const [profile, setProfile] = useState(user || null);
   const [upcomingBirthdays, setUpcomingBirthdays] = useState([]);
   const [loading, setLoading] = useState(!user && !profile);
@@ -228,7 +228,10 @@ export default function EmployeeProfileView({ onBack, user, onSelectEmployee }) 
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
         profile={profile}
-        onProfileUpdated={(updated) => setProfile(updated)}
+        onProfileUpdated={(updated) => {
+          setProfile(updated);
+          if (onParentProfileUpdated) onParentProfileUpdated(updated);
+        }}
       />
 
       <PhotoUploader
