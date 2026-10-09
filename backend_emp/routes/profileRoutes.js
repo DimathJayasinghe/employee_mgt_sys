@@ -60,8 +60,8 @@ router.post(['/zoho/test', '/test/zoho'], async (req, res) => {
   }
 });
 
-// Protect all following routes with requireAuth
-router.use(requireAuth);
+// Protect profile routes with requireAuth
+router.use(['/profile', '/me'], requireAuth);
 
 // Helper to resolve target user ID: only Admins can query or modify another user's profile
 function getTargetUserId(req, requestedId) {
@@ -138,6 +138,9 @@ router.get('/profile/admins', async (req, res) => {
 
 // POST /profile/create-employee (Admin Only)
 router.post('/profile/create-employee', async (req, res) => {
+  if (req.user?.role !== 'Admin') {
+    return res.status(403).json({ error: 'Access denied: Admin role required' });
+  }
   try {
     const created = await profileService.createEmployee(req.body, req.user);
     return res.status(201).json(created);

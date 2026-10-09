@@ -104,6 +104,7 @@ export default function EmployeeProfileView({ onBack, user, onSelectEmployee, on
     }
   })();
 
+  const isAdmin = activeUser?.role === 'Admin';
   const isOwner = Boolean(
     activeUser && (
       (activeUser.id && profile?.id && String(activeUser.id) === String(profile.id)) ||
@@ -112,8 +113,9 @@ export default function EmployeeProfileView({ onBack, user, onSelectEmployee, on
     )
   );
 
-  const handleOpenEditModal = isOwner ? () => setIsEditModalOpen(true) : null;
-  const handleOpenPhotoModal = isOwner ? () => setIsPhotoModalOpen(true) : null;
+  const canEdit = isOwner || isAdmin;
+  const handleOpenEditModal = canEdit ? () => setIsEditModalOpen(true) : null;
+  const handleOpenPhotoModal = canEdit ? () => setIsPhotoModalOpen(true) : null;
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">

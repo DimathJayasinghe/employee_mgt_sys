@@ -2368,7 +2368,7 @@ const profileService = {
   },
 
   async createEmployee(data = {}, requestingUser) {
-    const isAdmin = !requestingUser || requestingUser.role === 'Admin';
+    const isAdmin = Boolean(requestingUser && requestingUser.role === 'Admin');
     if (!isAdmin) {
       const err = new Error('Access denied: Admin role required to create employee profiles');
       err.status = 403;
@@ -2390,11 +2390,13 @@ const profileService = {
     const cleanName = data.name.trim();
     const cleanEmail = data.email.trim().toLowerCase();
     const initials = getInitials(cleanName);
+    const rawPassword = data.password ? data.password.trim() : 'pwh12345';
+    const hashedPassword = bcrypt.hashSync(rawPassword, 10);
 
     const payload = {
       name: cleanName,
       email: cleanEmail,
-      password: data.password ? data.password.trim() : 'pwh12345',
+      password: hashedPassword,
       role: data.role || 'Employee',
       status: 'Working',
       initials: initials,

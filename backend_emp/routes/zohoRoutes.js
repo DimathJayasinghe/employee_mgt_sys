@@ -3,7 +3,7 @@ const router = express.Router();
 const zohoService = require('../services/zohoService');
 const { authenticateToken, requireAdmin } = require('../middleware/authMiddleware');
 
-router.use(authenticateToken);
+router.use(['/zoho', '/admin/client-analytics'], authenticateToken);
 
 // GET /api/zoho/clients - Fetch Zoho Books clients list
 router.get('/zoho/clients', async (req, res) => {

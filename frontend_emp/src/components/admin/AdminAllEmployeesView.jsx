@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import API from '../../api';
-import { Search, ChevronDown, UserCheck, Shield, Building2 } from 'lucide-react';
+import { Search, ChevronDown, UserCheck, Shield, Building2, UserPlus } from 'lucide-react';
+import AddProfileModal from './AddProfileModal';
 
 export default function AdminAllEmployeesView({ employees: initialEmployees = [], onSelectEmployee }) {
   const [employees, setEmployees] = useState(initialEmployees);
@@ -9,6 +10,7 @@ export default function AdminAllEmployeesView({ employees: initialEmployees = []
   const [deptFilter, setDeptFilter] = useState('All departments');
   const [statusFilter, setStatusFilter] = useState('All statuses');
   const [workFilter, setWorkFilter] = useState('All Work Status');
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   const parseWorkDesc = (rawDesc) => {
     if (!rawDesc) return { cleanText: '', clientTags: [] };
@@ -322,6 +324,15 @@ export default function AdminAllEmployeesView({ employees: initialEmployees = []
             </select>
             <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
+
+          {/* Add Employee Button */}
+          <button
+            onClick={() => setIsAddModalOpen(true)}
+            className="bg-[#022851] hover:bg-[#03376e] active:scale-95 text-white text-xs font-bold px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+          >
+            <UserPlus className="w-3.5 h-3.5" />
+            <span>Add Employee</span>
+          </button>
         </div>
       </div>
 
@@ -412,6 +423,12 @@ export default function AdminAllEmployeesView({ employees: initialEmployees = []
         </div>
       )}
 
+      {/* Add Employee Modal */}
+      <AddProfileModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        onEmployeeCreated={() => fetchEmployees()}
+      />
     </div>
   );
 }
